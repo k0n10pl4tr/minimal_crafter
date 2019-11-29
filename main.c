@@ -3,6 +3,11 @@
 
 #include <X11/Xlib.h>
 #include <EGL/egl.h>
+#include <time.h>
+
+#include "glad.h"
+
+#include <unistd.h>
 
 static void initWindow();
 static void updateWindow();
@@ -73,6 +78,11 @@ initWindow()
 
 	eglContext = eglCreateContext(eglDisplay, eglConfig, EGL_NO_CONTEXT, NULL);
 	eglMakeCurrent(eglDisplay, eglSurface, eglSurface, eglContext);
+
+	if(!gladLoadGLLoader((GLADloadproc)eglGetProcAddress)) {
+		printf("Could not read the opengl functions.\n");
+		exit(-2);
+	}
 }
 
 static void
@@ -109,7 +119,8 @@ main(int argc, char *argv[])
 	initWindow();
 	running = 1;
 	while(running) {
-		
+		glClearColor(0.2, 0.3, 0.7, 1.0);
+		glClear(GL_COLOR_BUFFER_BIT);
 		updateWindow();
 	}
 	terminateWindow();

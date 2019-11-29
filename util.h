@@ -1,3 +1,3 @@
-
 void startClock();
-unsigned long long getCurrentTimeNano();
+double getCurrentTimeNano();
+void sleepNanosec(double time);

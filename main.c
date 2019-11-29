@@ -6,8 +6,11 @@
 #include <time.h>
 
 #include "glad.h"
+#include "util.h"
 
 #include <unistd.h>
+
+#define FRAMES_PER_SEC 60.0
 
 static void initWindow();
 static void updateWindow();
@@ -78,11 +81,12 @@ initWindow()
 
 	eglContext = eglCreateContext(eglDisplay, eglConfig, EGL_NO_CONTEXT, NULL);
 	eglMakeCurrent(eglDisplay, eglSurface, eglSurface, eglContext);
-
 	if(!gladLoadGLLoader((GLADloadproc)eglGetProcAddress)) {
 		printf("Could not read the opengl functions.\n");
 		exit(-2);
 	}
+
+	startClock();
 }
 
 static void
@@ -119,9 +123,13 @@ main(int argc, char *argv[])
 	initWindow();
 	running = 1;
 	while(running) {
+		double startProcess = getCurrentTimeNano();
 		glClearColor(0.2, 0.3, 0.7, 1.0);
 		glClear(GL_COLOR_BUFFER_BIT);
+		
 		updateWindow();
+		double end = getCurrentTimeNano();
+		sleepNanosec((1.0 / FRAMES_PER_SEC) - (end - startProcess));
 	}
 	terminateWindow();
 }

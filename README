@@ -1,0 +1,12 @@
+a crafting game
+===============
+
+Yep. That's it.
+Just another minecraft clone.
+
+Dependencies:
+- X11
+- EGL
+- OpenGL 3.3
+- OpenAL (?.?)
+

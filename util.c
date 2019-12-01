@@ -12,7 +12,7 @@ void
 startClock()
 {
 	clock_gettime(CLOCK_REALTIME, &clockStartSpec);
-	printf("Clock started with: %d.%llu\n", clockStartSpec.tv_sec, clockStartSpec.tv_nsec);
+	printf("Clock started with: %lu.%lu\n", clockStartSpec.tv_sec, clockStartSpec.tv_nsec);
 }
 
 double

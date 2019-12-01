@@ -7,6 +7,7 @@
 
 #include "glad.h"
 #include "util.h"
+#include "rendering.h"
 
 #include <unistd.h>
 
@@ -19,6 +20,8 @@ static void terminateWindow();
 Display* dpy;
 Window rootWindow, window;
 Atom   wmDeleteWindow;
+
+int windowWidth, windowHeight;
 
 unsigned char running = 0;
 
@@ -41,14 +44,15 @@ EGLint eglSurfaceAttr[] = {
 
 EGLint eglContextAttr[] = {
 	EGL_CONTEXT_MAJOR_VERSION, 3,
-	EGL_CONTEXT_MINOR_VERSION, 0,
+	EGL_CONTEXT_MINOR_VERSION, 3,
+	EGL_CONTEXT_OPENGL_PROFILE_MASK, EGL_CONTEXT_OPENGL_CORE_PROFILE_BIT,
 	EGL_NONE
 };
 
 static void
 initWindow()
 {
-	eglBindAPI(EGL_OPENGL_BIT);
+	eglBindAPI(EGL_OPENGL_API);
 	dpy = XOpenDisplay(NULL);
 	if(!dpy) {
 		printf("Could not init X11\n");
@@ -58,9 +62,13 @@ initWindow()
 	wmDeleteWindow = XInternAtom(dpy, "WM_DELETE_WINDOW", 0);
 
 	XSetWindowAttributes swa;
-	swa.event_mask = KeyPressMask | KeyReleaseMask;
-	
-	window = XCreateWindow(dpy, rootWindow, 0, 0, 800, 600, 0, CopyFromParent, InputOutput, CopyFromParent, CWEventMask, &swa);
+	swa.event_mask = KeyPressMask | KeyReleaseMask | StructureNotifyMask;
+
+	windowWidth = 800;
+	windowHeight = 600;
+
+	window = XCreateWindow(dpy, rootWindow, 0, 0, windowWidth, windowHeight, 0, CopyFromParent, InputOutput, CopyFromParent, CWEventMask, &swa);
+	XSetWMProtocols(dpy, window, &wmDeleteWindow, 1);
 
 	XStoreName(dpy, window, "Hello");
 	XMapWindow(dpy, window);
@@ -71,6 +79,7 @@ initWindow()
 		exit(-2);
 	}
 	eglInitialize(eglDisplay, &eglVersionMajor, &eglVersionMinor);
+	printf("EGL Version: %d.%d\n", eglVersionMajor, eglVersionMinor);
 	eglChooseConfig(eglDisplay, eglConfigAttr, &eglConfig, 1, &eglNumConfigs);
 	eglSurface = eglCreateWindowSurface(eglDisplay, eglConfig, (NativeWindowType)window, eglSurfaceAttr);
 
@@ -85,8 +94,9 @@ initWindow()
 		printf("Could not read the opengl functions.\n");
 		exit(-2);
 	}
-
+	printf("OpenGL Version: %s\n", glGetString(GL_VERSION));
 	startClock();
+	initRenderingSystem();
 }
 
 static void
@@ -101,6 +111,13 @@ updateWindow()
 			if(xev.xclient.data.l[0] == wmDeleteWindow)
 				running = 0;
 			break;
+		case ConfigureNotify:
+			if(windowWidth != xev.xconfigure.width || windowHeight != xev.xconfigure.height) {
+				windowWidth = xev.xconfigure.width;
+				windowHeight = xev.xconfigure.height;
+
+				resizeRenderingSystem(windowWidth, windowHeight);
+			}
 		}
 	}
 }
@@ -126,6 +143,8 @@ main(int argc, char *argv[])
 		double startProcess = getCurrentTimeNano();
 		glClearColor(0.2, 0.3, 0.7, 1.0);
 		glClear(GL_COLOR_BUFFER_BIT);
+
+		render();
 		
 		updateWindow();
 		double end = getCurrentTimeNano();

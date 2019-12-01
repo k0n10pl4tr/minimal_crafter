@@ -6,7 +6,7 @@
 #include "glad.h"
 
 unsigned int
-glutil_load_shader(const char *path, unsigned int type)
+loadShader(const char *path, unsigned int type)
 {
 	char *fileData;
 	int   size;
@@ -34,7 +34,7 @@ glutil_load_shader(const char *path, unsigned int type)
 		glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &cmp);
 		char* data = malloc(cmp);
 		glGetShaderInfoLog(shader, cmp, &cmp, data);
-		printf("Shader compilation failure! Shader path: %d\nLog: %s\n", path, data);
+		printf("Shader compilation failure! Shader path: %s\nLog: %s\n", path, data);
 		free(data);
 	}
 	
@@ -43,7 +43,7 @@ glutil_load_shader(const char *path, unsigned int type)
 }
 
 unsigned int
-glutil_create_program(unsigned int shaders[])
+createProgram(unsigned int shaders[])
 {
 	unsigned int* shaderPtr = shaders;
 	unsigned int program = glCreateProgram();
@@ -58,7 +58,9 @@ glutil_create_program(unsigned int shaders[])
 
 	while(*shaderPtr) {
 		glDetachShader(program, *shaderPtr);
+		shaderPtr++;
 	}
+
 	return program;
 }
 

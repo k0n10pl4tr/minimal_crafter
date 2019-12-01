@@ -1,12 +1,13 @@
 
-cc=tcc
-cflags=-Wall -Werror
-libs=-lX11 -lEGL
+cc=gcc
+cflags=-Wall -Werror -g
+libs=-lX11 -lEGL -lm
 
 sources= main.o \
 		 glutil.o \
 		 glad.o \
-		 util.o
+		 util.o \
+		 rendering.o \
 
 all: crafting_game
 

@@ -6,9 +6,8 @@ Just another minecraft clone.
 
 Dependencies:
 - X11
-- EGL
+- GLX 1.3
 - OpenGL 3.3
-- OpenAL (?.?)
 
 License:
 	My code is under WTFPL, but GLAD and Khronos have it's own on in their (glad.h and khrplatform.h) files.

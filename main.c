@@ -29,6 +29,8 @@ Window rootWindow, window;
 Atom   wmDeleteWindow;
 int screen;
 
+float angleView = 0.0;
+
 int windowWidth, windowHeight;
 unsigned char running = 0;
 
@@ -156,10 +158,22 @@ main(int argc, char *argv[])
 {
 	initWindow();
 	running = 1;
+
+	vec3 camPosition = { 0.0, 0.0, 0.0 };
+	vec3 camNormal   = { 0.0, 1.0, 0.0 };
+	vec3 camLook     = { 0.0, 0.0, 0.0 };
+
 	while(running) {
 		double startProcess = getCurrentTimeNano();
-		glClearColor(0.2, 0.3, 0.7, 1.0);
-		glClear(GL_COLOR_BUFFER_BIT);
+		
+		camPosition[0] = sin(getCurrentTimeNano()) * 10;
+		camPosition[2] = cos(getCurrentTimeNano()) * 10;
+
+		printf("Camera position: %f %f %f\n", camPosition[0], camPosition[1], camPosition[2]);
+		setCamera(camPosition, camNormal, camLook);
+
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
 		render();
 		
 		updateWindow();

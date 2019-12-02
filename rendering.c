@@ -6,6 +6,8 @@
 
 #include <stdio.h>
 
+static void updateCameraMatrix();
+
 unsigned int cubeRenderingShader = 0;
 unsigned int cubeVertexArray = 0;
 unsigned int cubeVertexBuffer = 0;
@@ -46,12 +48,12 @@ const float cubeBufferData[] = {
 	-1, -1,  1,
 
 	//Right face
-	-1, -1, -1,
-	-1,  1, -1,
-	-1,  1,  1,
-	-1,  1,  1,
-	-1, -1,  1,
-	-1, -1, -1,
+	 1, -1, -1,
+	 1,  1, -1,
+	 1,  1,  1,
+	 1,  1,  1,
+	 1, -1,  1,
+	 1, -1, -1,
 	
 	//Bottom face
 	-1, -1, -1,
@@ -71,7 +73,7 @@ const float cubeBufferData[] = {
 };
 
 vec3 eyeDirection = { 0.0, 0.0, 1.0 };
-vec3 eyePosition  = { 0.0, 0.0, -10.0 };
+vec3 eyePosition  = { 0.0, 0.0, 0.0 };
 vec3 eyeUpNormal  = { 0.0, 1.0, 0.0 };
 
 void
@@ -129,11 +131,22 @@ resizeRenderingSystem(int w, int h)
 void
 render()
 {
+	glEnable(GL_DEPTH_TEST);
+	glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 	glUseProgram(cubeRenderingShader);
+	
+	glUniformMatrix4fv(cubeUniformViewLocation, 1, GL_FALSE, &viewMatrix[0][0]);
+
 	glBindVertexArray(cubeVertexArray);
-	glDrawArrays(GL_TRIANGLES, 0, 6);
+	glDrawArrays(GL_TRIANGLES, 0, 36);
 	glBindVertexArray(0);
+
 	glUseProgram(0);
+	glDisable(GL_DEPTH_TEST);
 }
 
-
+void
+setCamera(vec3 position, vec3 normal, vec3 direction)
+{
+	mat4x4_look_at(viewMatrix, position, direction, normal);
+}

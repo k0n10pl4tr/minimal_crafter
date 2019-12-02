@@ -1,6 +1,6 @@
 
-cc=gcc
-cflags=-Wall -Werror -g
+cc=tcc
+cflags=-Wall -Werror
 libs=-lX11 -lGLX -lm
 
 sources= main.o \

@@ -2,16 +2,23 @@
 #include <stdlib.h>
 
 #include <X11/Xlib.h>
-#include <EGL/egl.h>
 #include <time.h>
 
 #include "glad.h"
+#include <GL/glx.h>
+
 #include "util.h"
 #include "rendering.h"
 
 #include <unistd.h>
 
 #define FRAMES_PER_SEC 60.0
+
+#define GLX_CONTEXT_MAJOR_VERSION_ARB       0x2091
+#define GLX_CONTEXT_MINOR_VERSION_ARB       0x2092
+#define GLX_CONTEXT_PROFILE_MASK_ARB        0x9126
+
+typedef GLXContext (*glXCreateContextAttribsARBProc)(Display*, GLXFBConfig, GLXContext, Bool, const int*);
 
 static void initWindow();
 static void updateWindow();
@@ -20,81 +27,94 @@ static void terminateWindow();
 Display* dpy;
 Window rootWindow, window;
 Atom   wmDeleteWindow;
+int screen;
 
 int windowWidth, windowHeight;
-
 unsigned char running = 0;
 
-EGLDisplay eglDisplay;
-EGLConfig  eglConfig;
-EGLSurface eglSurface;
-EGLContext eglContext;
-EGLint     eglVersionMajor, eglVersionMinor;
-EGLint     eglNumConfigs;
+GLXFBConfig fbConfig;
+GLXContext  glContext;
 
-EGLint eglConfigAttr[] = {
-	EGL_SURFACE_TYPE, EGL_WINDOW_BIT,
-	EGL_RENDERABLE_TYPE, EGL_OPENGL_BIT,
-	EGL_NONE
+static int visualAttribs[] =
+{
+	GLX_X_RENDERABLE    , True,
+	GLX_DRAWABLE_TYPE   , GLX_WINDOW_BIT,
+	GLX_RENDER_TYPE     , GLX_RGBA_BIT,
+	GLX_X_VISUAL_TYPE   , GLX_TRUE_COLOR,
+	GLX_RED_SIZE        , 8,
+	GLX_GREEN_SIZE      , 8,
+	GLX_BLUE_SIZE       , 8,
+	GLX_ALPHA_SIZE      , 8,
+	GLX_DEPTH_SIZE      , 24,
+	GLX_STENCIL_SIZE    , 8,
+	GLX_DOUBLEBUFFER    , True,
+	//GLX_SAMPLE_BUFFERS  , 1,
+	//GLX_SAMPLES         , 4,
+	None
 };
 
-EGLint eglSurfaceAttr[] = {
-	EGL_NONE
-};
-
-EGLint eglContextAttr[] = {
-	EGL_CONTEXT_MAJOR_VERSION, 3,
-	EGL_CONTEXT_MINOR_VERSION, 3,
-	EGL_CONTEXT_OPENGL_PROFILE_MASK, EGL_CONTEXT_OPENGL_CORE_PROFILE_BIT,
-	EGL_NONE
+static int glxContextAttribs[] = {
+	GLX_CONTEXT_MAJOR_VERSION_ARB, 3,
+	GLX_CONTEXT_MINOR_VERSION_ARB, 3,
+	GLX_CONTEXT_PROFILE_MASK_ARB, GLX_CONTEXT_CORE_PROFILE_BIT_ARB,
+	None
 };
 
 static void
 initWindow()
 {
-	eglBindAPI(EGL_OPENGL_API);
 	dpy = XOpenDisplay(NULL);
 	if(!dpy) {
 		printf("Could not init X11\n");
 		exit(-1);
 	}
+	screen = DefaultScreen(dpy);
+
+	int glxMajor, glxMinor;
+	glXQueryVersion(dpy, &glxMajor, &glxMinor);
+	if(glxMinor < 3)
+	{
+		printf("Invalid GLX Version\n");
+		exit(-3);
+	}
+	int fbConfigCount;
+	GLXFBConfig* fbConfigs = glXChooseFBConfig(dpy, screen, visualAttribs, &fbConfigCount);
+	
+	printf("Found %d config count, selecting the first one, anyway\n", fbConfigCount);
+
+	fbConfig = fbConfigs[0];
+	XFree(fbConfigs);
+
+	XVisualInfo* vi = glXGetVisualFromFBConfig(dpy, fbConfig);
+	
 	rootWindow = DefaultRootWindow(dpy);
 	wmDeleteWindow = XInternAtom(dpy, "WM_DELETE_WINDOW", 0);
 
 	XSetWindowAttributes swa;
+	swa.colormap   = XCreateColormap(dpy, rootWindow, vi->visual, AllocNone);
 	swa.event_mask = KeyPressMask | KeyReleaseMask | StructureNotifyMask;
 
 	windowWidth = 800;
 	windowHeight = 600;
-
-	window = XCreateWindow(dpy, rootWindow, 0, 0, windowWidth, windowHeight, 0, CopyFromParent, InputOutput, CopyFromParent, CWEventMask, &swa);
+	
+	window = XCreateWindow(dpy, rootWindow, 0, 0, windowWidth, windowHeight, 0, vi->depth, InputOutput, vi->visual, CWEventMask | CWColormap, &swa);
 	XSetWMProtocols(dpy, window, &wmDeleteWindow, 1);
 
 	XStoreName(dpy, window, "Hello");
 	XMapWindow(dpy, window);
+	
+	glXCreateContextAttribsARBProc contextLoader = NULL;
+	contextLoader = (glXCreateContextAttribsARBProc)glXGetProcAddressARB((const unsigned char*)"glXCreateContextAttribsARB");
+	
+	glContext = contextLoader(dpy, fbConfig, 0, True, glxContextAttribs);
+	glXMakeCurrent(dpy, window, glContext);
 
-	eglDisplay = eglGetDisplay((NativeDisplayType)dpy);
-	if(eglDisplay == EGL_NO_DISPLAY) {
-		printf("Could not get EGL display!\n");
-		exit(-2);
-	}
-	eglInitialize(eglDisplay, &eglVersionMajor, &eglVersionMinor);
-	printf("EGL Version: %d.%d\n", eglVersionMajor, eglVersionMinor);
-	eglChooseConfig(eglDisplay, eglConfigAttr, &eglConfig, 1, &eglNumConfigs);
-	eglSurface = eglCreateWindowSurface(eglDisplay, eglConfig, (NativeWindowType)window, eglSurfaceAttr);
-
-	if(eglSurface == EGL_NO_SURFACE) {
-		printf("Could not create EGL Surface!\n");
-		exit(-3);
-	}
-
-	eglContext = eglCreateContext(eglDisplay, eglConfig, EGL_NO_CONTEXT, NULL);
-	eglMakeCurrent(eglDisplay, eglSurface, eglSurface, eglContext);
-	if(!gladLoadGLLoader((GLADloadproc)eglGetProcAddress)) {
+	if(!gladLoadGLLoader((GLADloadproc)glXGetProcAddress)) {
 		printf("Could not read the opengl functions.\n");
 		exit(-2);
 	}
 	printf("OpenGL Version: %s\n", glGetString(GL_VERSION));
+
 	startClock();
 	initRenderingSystem();
 }
@@ -102,7 +122,7 @@ initWindow()
 static void
 updateWindow()
 {
-	eglSwapBuffers(eglDisplay, eglSurface);
+	glXSwapBuffers(dpy, window);
 	while(XPending(dpy)) {
 		XEvent xev;
 		XNextEvent(dpy, &xev);
@@ -125,11 +145,8 @@ updateWindow()
 static void
 terminateWindow()
 {
-	eglMakeCurrent(eglDisplay, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
-	eglDestroyContext(eglDisplay, eglContext);
-	eglDestroySurface(eglDisplay, eglSurface);
-	eglTerminate(eglDisplay);
-
+	glXMakeCurrent(dpy, None, None);
+	glXDestroyContext(dpy, glContext);
 	XDestroyWindow(dpy, window);
 	XCloseDisplay(dpy);
 }
@@ -143,7 +160,6 @@ main(int argc, char *argv[])
 		double startProcess = getCurrentTimeNano();
 		glClearColor(0.2, 0.3, 0.7, 1.0);
 		glClear(GL_COLOR_BUFFER_BIT);
-
 		render();
 		
 		updateWindow();

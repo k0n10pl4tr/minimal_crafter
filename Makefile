@@ -1,7 +1,7 @@
 
 cc=gcc
 cflags=-Wall -Werror -g
-libs=-lX11 -lEGL -lm
+libs=-lX11 -lGLX -lm
 
 sources= main.o \
 		 glutil.o \

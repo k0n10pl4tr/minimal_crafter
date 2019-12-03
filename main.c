@@ -115,7 +115,19 @@ initWindow()
 		printf("Could not read the opengl functions.\n");
 		exit(-2);
 	}
-	printf("OpenGL Version: %s\n", glGetString(GL_VERSION));
+	
+	int glMajorVersion, glMinorVersion;
+	glGetIntegerv(GL_MAJOR_VERSION, &glMajorVersion);
+	glGetIntegerv(GL_MINOR_VERSION, &glMinorVersion);
+	
+	if(glMajorVersion < 3 && glMinorVersion < 3) {
+		printf("Sorry, your OpenGL Version is not that is used.\n");
+		printf("OpenGL version used: 3.3, your OpenGL version: %d.%d\n", glMajorVersion, glMinorVersion);
+		printf("Shutting down\n");
+		exit(-5);
+	}
+
+	printf("OpenGL Version: %d.%d\n", glMajorVersion, glMinorVersion);
 
 	startClock();
 	initRenderingSystem();

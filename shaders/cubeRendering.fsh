@@ -1,8 +1,15 @@
 #version 330 core
-layout(location = 0) out vec4 o_Color;
+uniform sampler2D image;
+
+layout(location = 0) 
+out vec4 o_Color;
+
+in VS_OUT {
+	vec2 texcoord;
+} vs_out;
 
 void
 main()
 {
-	o_Color = vec4(0.7, 0.3, 0.2, 1.0);
+	o_Color = texture(image, vs_out.texcoord);
 }

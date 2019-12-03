@@ -16,6 +16,8 @@ unsigned int cubeUniformProjectionLocation = 0;
 unsigned int cubeUniformModelLocation      = 0;
 unsigned int cubeUniformViewLocation       = 0;
 
+unsigned int cubeTexture = 0;
+
 mat4x4 projectionMatrix;
 mat4x4 modelMatrix;
 mat4x4 viewMatrix;
@@ -24,12 +26,12 @@ mat4x4 viewMatrix;
 
 const float cubeBufferData[] = {
 	//Back face
-	-1, -1, -1,
 	 1, -1, -1,
-	 1,  1, -1, 
-	 1,  1, -1,
-	-1,  1, -1, 
 	-1, -1, -1,
+	-1,  1, -1, 
+	-1,  1, -1,
+	 1,  1, -1, 
+	 1, -1, -1,
 
 	//Left face
 	-1, -1, -1,
@@ -41,19 +43,19 @@ const float cubeBufferData[] = {
 
 	//Front face
 	-1, -1,  1,
-	-1,  1,  1,
+	 1, -1,  1,
 	 1,  1,  1, 
 	 1,  1,  1,
-	 1, -1,  1, 
+	-1,  1,  1, 
 	-1, -1,  1,
 
 	//Right face
-	 1, -1, -1,
-	 1,  1, -1,
-	 1,  1,  1,
-	 1,  1,  1,
 	 1, -1,  1,
 	 1, -1, -1,
+	 1,  1, -1,
+	 1,  1, -1,
+	 1,  1,  1,
+	 1, -1,  1,
 	
 	//Bottom face
 	-1, -1, -1,
@@ -65,18 +67,62 @@ const float cubeBufferData[] = {
 	
 	//Top face
 	-1,  1, -1,
-	-1,  1,  1,
-	 1,  1,  1,
-	 1,  1,  1,
 	 1,  1, -1,
-	-1,  1, -1
+	 1,  1,  1,
+	 1,  1,  1,
+	-1,  1,  1,
+	-1,  1, -1,
+
+
+	//Texcoords. It's a repeat of 6 texcoord pairs, for each face
+	0, 0,
+	1, 0,
+	1, 1,
+	1, 1,
+	0, 1,
+	0, 0,
+
+	0, 0,
+	1, 0,
+	1, 1,
+	1, 1,
+	0, 1,
+	0, 0,
+
+	0, 0,
+	1, 0,
+	1, 1,
+	1, 1,
+	0, 1,
+	0, 0,
+
+	0, 0,
+	1, 0,
+	1, 1,
+	1, 1,
+	0, 1,
+	0, 0,
+
+	0, 0,
+	1, 0,
+	1, 1,
+	1, 1,
+	0, 1,
+	0, 0,
+
+	0, 0,
+	1, 0,
+	1, 1,
+	1, 1,
+	0, 1,
+	0, 0
 };
 
 vec3 eyeDirection = { 0.0, 0.0, 1.0 };
 vec3 eyePosition  = { 0.0, 0.0, 0.0 };
 vec3 eyeUpNormal  = { 0.0, 1.0, 0.0 };
 
-void
+	void
 initRenderingSystem()
 {
 	unsigned int cubeRenderingVertex = loadShader("shaders/cubeRendering.vsh", GL_VERTEX_SHADER);
@@ -96,15 +142,17 @@ initRenderingSystem()
 	glGenVertexArrays(1, &cubeVertexArray);
 	glBindVertexArray(cubeVertexArray);
 	glEnableVertexAttribArray(0);
+	glEnableVertexAttribArray(1);
 	glBindBuffer(GL_ARRAY_BUFFER, cubeVertexBuffer);
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)(0));
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)(36 * 3 * sizeof(float)));
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glBindVertexArray(0);
 
 	cubeUniformProjectionLocation = glGetUniformLocation(cubeRenderingShader, "projectionMatrix");
 	cubeUniformModelLocation      = glGetUniformLocation(cubeRenderingShader, "modelMatrix");
 	cubeUniformViewLocation       = glGetUniformLocation(cubeRenderingShader, "viewMatrix");
-	
+
 	mat4x4_perspective(projectionMatrix, TO_RADIANS(70.0), 4.0/3.0, 0.01, 100.0);
 	mat4x4_identity(modelMatrix);
 	mat4x4_look_at(viewMatrix, eyeDirection, eyePosition, eyeUpNormal);
@@ -114,6 +162,8 @@ initRenderingSystem()
 	glUniformMatrix4fv(cubeUniformModelLocation,      1, GL_FALSE, &modelMatrix[0][0]);
 	glUniformMatrix4fv(cubeUniformViewLocation,       1, GL_FALSE, &viewMatrix[0][0]);
 	glUseProgram(0);
+
+	cubeTexture = loadTextureFarbfeld("textures/test.ff");
 }
 
 void
@@ -132,14 +182,16 @@ void
 render()
 {
 	glEnable(GL_DEPTH_TEST);
-	glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 	glUseProgram(cubeRenderingShader);
 	
 	glUniformMatrix4fv(cubeUniformViewLocation, 1, GL_FALSE, &viewMatrix[0][0]);
-
+	
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, cubeTexture);
 	glBindVertexArray(cubeVertexArray);
 	glDrawArrays(GL_TRIANGLES, 0, 36);
 	glBindVertexArray(0);
+	glBindTexture(GL_TEXTURE_2D, 0);
 
 	glUseProgram(0);
 	glDisable(GL_DEPTH_TEST);

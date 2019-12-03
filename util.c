@@ -34,3 +34,28 @@ sleepNanosec(double time)
 
 	nanosleep(&sleepTime, &sleptTime);
 }
+
+unsigned short 
+bigEndianToHost16(unsigned short beValue)
+{
+#if __BYTE_ORDER_ == __ORDER_LITTLE_ENDIAN__
+	return beValue >> 8 | beValue << 8;
+#else
+	return beValue;
+#endif
+}
+
+unsigned int
+bigEndianToHost32(unsigned int beValue)
+{
+#if __BYTE_ORDER_ == __ORDER_LITTLE_ENDIAN__
+	return 
+		((beValue >> 24) & 0xFF      ) |
+		((beValue <<  8) & 0xFF0000  ) |
+		((beValue >>  8) & 0xFF00    ) |
+		((beValue << 24) & 0xFF000000);
+
+#else
+	return beValue;
+#endif
+}

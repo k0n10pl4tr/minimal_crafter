@@ -270,10 +270,10 @@ generateChunkModel(unsigned int x, unsigned int y, unsigned int z)
 					if(yb == WORLD_CHUNK_SIZE - 1 || GET_BLOCK(xb, yb + 1, zb) == 0) {
 						//Generate top face
 						vertexData[0]  = -1 + xb * 2; vertexData[1]  =  1 + yb * 2; vertexData[2]  = -1 + zb * 2;
-						vertexData[3]  =  1 + xb * 2; vertexData[4]  =  1 + yb * 2; vertexData[5]  = -1 + zb * 2;
+						vertexData[3]  = -1 + xb * 2; vertexData[4]  =  1 + yb * 2; vertexData[5]  =  1 + zb * 2;
 						vertexData[6]  =  1 + xb * 2; vertexData[7]  =  1 + yb * 2; vertexData[8]  =  1 + zb * 2;
 						vertexData[9]  =  1 + xb * 2; vertexData[10] =  1 + yb * 2; vertexData[11] =  1 + zb * 2;
-						vertexData[12] = -1 + xb * 2; vertexData[13] =  1 + yb * 2; vertexData[14] =  1 + zb * 2;
+						vertexData[12] =  1 + xb * 2; vertexData[13] =  1 + yb * 2; vertexData[14] = -1 + zb * 2;
 						vertexData[15] = -1 + xb * 2; vertexData[16] =  1 + yb * 2; vertexData[17] = -1 + zb * 2;
 
 						texcoordData[0]  = 0; texcoordData[1]  = 0;
@@ -351,6 +351,7 @@ void
 render()
 {
 	glEnable(GL_DEPTH_TEST);
+	glEnable(GL_CULL_FACE);
 	glUseProgram(cubeRenderingShader);
 	
 	glUniformMatrix4fv(cubeUniformViewLocation, 1, GL_FALSE, &viewMatrix[0][0]);

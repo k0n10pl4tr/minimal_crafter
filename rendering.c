@@ -5,8 +5,13 @@
 
 #include "glutil.h"
 #include "world.h"
+#include "blocks.h"
 
 #include <stdio.h>
+
+//for memcpy
+#include <string.h>
+
 
 unsigned int cubeRenderingShader = 0;
 unsigned int cubeVertexArray = 0;
@@ -21,6 +26,7 @@ unsigned int worldChunkFaces = 0;
 unsigned int worldChunkVao   = 0;
 
 unsigned int cubeTexture = 0;
+unsigned int cubeTerrainTexture = 0;
 
 mat4x4 projectionMatrix;
 mat4x4 modelMatrix;
@@ -168,6 +174,7 @@ initRenderingSystem()
 	glUseProgram(0);
 
 	cubeTexture = loadTextureFarbfeld("textures/test.ff");
+	cubeTerrainTexture = loadTextureFarbfeld("textures/terrain.ff");
 }
 
 void
@@ -213,14 +220,9 @@ generateChunkModel(unsigned int x, unsigned int y, unsigned int z)
 						vertexData[9]  = -1 + xb * 2; vertexData[10] =  1 + yb * 2; vertexData[11] =  1 + zb * 2;
 						vertexData[12] = -1 + xb * 2; vertexData[13] =  1 + yb * 2; vertexData[14] = -1 + zb * 2;
 						vertexData[15] = -1 + xb * 2; vertexData[16] = -1 + yb * 2; vertexData[17] = -1 + zb * 2;
-
-						texcoordData[0]  = 0; texcoordData[1]  = 0;
-                        texcoordData[2]  = 1; texcoordData[3]  = 0;
-                        texcoordData[4]  = 1; texcoordData[5]  = 1;
-                        texcoordData[6]  = 1; texcoordData[7]  = 1;
-                        texcoordData[8]  = 0; texcoordData[9]  = 1;
-                        texcoordData[10] = 0; texcoordData[11] = 0;
-
+						
+						memcpy(texcoordData, BLOCKS[currentBlock - 1].texcoords[BLOCK_LEFT], sizeof(TexcoordFace));
+						
 						vertexData += 18;
 						texcoordData += 12;
 						worldChunkFaces++;
@@ -235,13 +237,9 @@ generateChunkModel(unsigned int x, unsigned int y, unsigned int z)
 						vertexData[12] = -1.0 + xb * 2; vertexData[13] = -1.0 + yb * 2; vertexData[14] =  1.0 + zb * 2;
 						vertexData[15] = -1.0 + xb * 2; vertexData[16] = -1.0 + yb * 2; vertexData[17] = -1.0 + zb * 2;
 
-						texcoordData[0]  = 0; texcoordData[1]  = 0;
-                        texcoordData[2]  = 1; texcoordData[3]  = 0;
-                        texcoordData[4]  = 1; texcoordData[5]  = 1;
-                        texcoordData[6]  = 1; texcoordData[7]  = 1;
-                        texcoordData[8]  = 0; texcoordData[9]  = 1;
-                        texcoordData[10] = 0; texcoordData[11] = 0;
 
+						memcpy(texcoordData, BLOCKS[currentBlock - 1].texcoords[BLOCK_BOTTOM], sizeof(TexcoordFace));
+						
 						vertexData += 18;
 						texcoordData += 12;
 						worldChunkFaces++;
@@ -255,12 +253,8 @@ generateChunkModel(unsigned int x, unsigned int y, unsigned int z)
 						vertexData[12] =  1 + xb * 2; vertexData[13] =  1 + yb * 2; vertexData[14] =  1 + zb * 2;
 						vertexData[15] =  1 + xb * 2; vertexData[16] = -1 + yb * 2; vertexData[17] =  1 + zb * 2;
 
-						texcoordData[0]  = 0; texcoordData[1]  = 0;
-                        texcoordData[2]  = 1; texcoordData[3]  = 0;
-                        texcoordData[4]  = 1; texcoordData[5]  = 1;
-                        texcoordData[6]  = 1; texcoordData[7]  = 1;
-                        texcoordData[8]  = 0; texcoordData[9]  = 1;
-                        texcoordData[10] = 0; texcoordData[11] = 0;
+
+						memcpy(texcoordData, BLOCKS[currentBlock - 1].texcoords[BLOCK_RIGHT], sizeof(TexcoordFace));
 
 						vertexData += 18;
 						texcoordData += 12;
@@ -276,12 +270,8 @@ generateChunkModel(unsigned int x, unsigned int y, unsigned int z)
 						vertexData[12] =  1 + xb * 2; vertexData[13] =  1 + yb * 2; vertexData[14] = -1 + zb * 2;
 						vertexData[15] = -1 + xb * 2; vertexData[16] =  1 + yb * 2; vertexData[17] = -1 + zb * 2;
 
-						texcoordData[0]  = 0; texcoordData[1]  = 0;
-						texcoordData[2]  = 1; texcoordData[3]  = 0;
-						texcoordData[4]  = 1; texcoordData[5]  = 1;
-						texcoordData[6]  = 1; texcoordData[7]  = 1;
-						texcoordData[8]  = 0; texcoordData[9]  = 1;
-						texcoordData[10] = 0; texcoordData[11] = 0;
+
+						memcpy(texcoordData, BLOCKS[currentBlock - 1].texcoords[BLOCK_TOP], sizeof(TexcoordFace));
 
 						vertexData += 18;
 						texcoordData += 12;
@@ -297,13 +287,8 @@ generateChunkModel(unsigned int x, unsigned int y, unsigned int z)
 						vertexData[12] = -1 + xb * 2; vertexData[13] =  1 + yb * 2; vertexData[14] =  1 + zb * 2;
 						vertexData[15] = -1 + xb * 2; vertexData[16] = -1 + yb * 2; vertexData[17] =  1 + zb * 2;
 
-						texcoordData[0]  = 0; texcoordData[1]  = 0;
-                        texcoordData[2]  = 1; texcoordData[3]  = 0;
-                        texcoordData[4]  = 1; texcoordData[5]  = 1;
-                        texcoordData[6]  = 1; texcoordData[7]  = 1;
-                        texcoordData[8]  = 0; texcoordData[9]  = 1;
-                        texcoordData[10] = 0; texcoordData[11] = 0;
 
+						memcpy(texcoordData, BLOCKS[currentBlock - 1].texcoords[BLOCK_FRONT], sizeof(TexcoordFace));
 						vertexData += 18;
 						texcoordData += 12;
 						worldChunkFaces++;
@@ -318,12 +303,7 @@ generateChunkModel(unsigned int x, unsigned int y, unsigned int z)
 						vertexData[12] =  1 + xb * 2; vertexData[13] =  1 + yb * 2; vertexData[14] = -1 + zb * 2;
 						vertexData[15] =  1 + xb * 2; vertexData[16] = -1 + yb * 2; vertexData[17] = -1 + zb * 2;
 
-						texcoordData[0]  = 0; texcoordData[1]  = 0;
-                        texcoordData[2]  = 1; texcoordData[3]  = 0;
-                        texcoordData[4]  = 1; texcoordData[5]  = 1;
-                        texcoordData[6]  = 1; texcoordData[7]  = 1;
-                        texcoordData[8]  = 0; texcoordData[9]  = 1;
-                        texcoordData[10] = 0; texcoordData[11] = 0;
+						memcpy(texcoordData, BLOCKS[currentBlock - 1].texcoords[BLOCK_BACK], sizeof(TexcoordFace));
 
 						vertexData += 18;
 						texcoordData += 12;
@@ -357,7 +337,7 @@ render()
 	glUniformMatrix4fv(cubeUniformViewLocation, 1, GL_FALSE, &viewMatrix[0][0]);
 	
 //	glActiveTexture(GL_TEXTURE0);
-//	glBindTexture(GL_TEXTURE_2D, cubeTexture);
+//	glBindTexture(GL_TEXTURE_2D, cubeTerrainTexture);
 //	glBindVertexArray(cubeVertexArray);
 //	glDrawArrays(GL_TRIANGLES, 0, 36);
 //	glBindVertexArray(0);
@@ -365,7 +345,7 @@ render()
 
 	if(worldChunkBuffer) {
 		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_2D, cubeTexture);	
+		glBindTexture(GL_TEXTURE_2D, cubeTerrainTexture);	
 		glBindVertexArray(worldChunkVao);
 		glDrawArrays(GL_TRIANGLES, 0, worldChunkFaces * 6);
 		glBindVertexArray(0);

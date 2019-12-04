@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
+#include <string.h>
 
 struct timespec clockStartSpec;
 
@@ -65,4 +66,41 @@ bigEndianToHost32(unsigned int beValue)
 #else
 	return beValue;
 #endif
+}
+
+unsigned short *
+getFarbfeldImageData(const char *path, unsigned int *wi, unsigned int *hi)
+{
+	char header[8];
+	unsigned int w, h;
+	unsigned short *imageData;
+	
+	FILE *fp = fopen(path, "r");
+	if(!fp) {
+		printf("Could not open the image: %s\n", path);
+		return (unsigned short*)-1;
+	}
+
+	fread(header, sizeof(header), 1, fp);
+	if(strcmp(header, "farbfeld") == 0) {
+		printf("This is not a farbfeld image: %s\n", path);
+		return (unsigned short*)-2;
+	}
+
+	fread(&w, sizeof(w), 1, fp);
+	fread(&h, sizeof(h), 1, fp);
+
+	w = bigEndianToHost32(w);
+	h = bigEndianToHost32(h);
+
+	imageData = malloc(4 * w * h * sizeof(short));
+	fread(imageData, 1, sizeof(short) * w * h * 4, fp);
+	
+	for(unsigned int i = 0; i < w * h * 4; i++) {
+		imageData[i] = bigEndianToHost16(imageData[i]);
+	}
+	*wi = w;
+	*hi = h;
+	fclose(fp);
+	return imageData;
 }

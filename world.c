@@ -33,7 +33,7 @@ createWorld(unsigned int w, unsigned int h, unsigned int d)
 		for(int xb = 0; xb < WORLD_CHUNK_SIZE; xb++)
 			for(int yb = 0; yb < WORLD_CHUNK_SIZE; yb++)
 				for(int zb = 0; zb < WORLD_CHUNK_SIZE; zb++) {
-					world.cachedChunks[i].blocks[xb][yb][zb] = rand() % 2;
+					world.cachedChunks[i].blocks[xb][yb][zb] = rand() % 4;
 				}	
 	}
 }

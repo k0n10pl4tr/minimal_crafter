@@ -8,7 +8,8 @@ sources= main.o \
 		 glad.o \
 		 util.o \
 		 rendering.o \
-		 world.o
+		 world.o \
+		 blocks.o
 
 all: crafting_game
 

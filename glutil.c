@@ -74,6 +74,9 @@ loadTextureFarbfeld(const char *path)
 {
 	unsigned int w, h;
 	unsigned short *imageData = getFarbfeldImageData(path, &w, &h);
+	if((intptr_t)imageData < 0) {
+		return -2;
+	}
 
 	unsigned int texture;
 	glGenTextures(1, &texture); 

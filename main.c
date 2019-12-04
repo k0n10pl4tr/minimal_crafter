@@ -206,9 +206,9 @@ main(int argc, char *argv[])
 	initWindow();
 	running = 1;
 	
-	createWorld(1, 1, 1);
-	generateChunkModel(0, 0, 0);
-
+	createWorld(2, 4, 2);
+	for(unsigned int i = 0; i < 2 * 4 * 2; i++)
+		generateChunkModel(i % 2, (i / 2) % 4, i / 8);
 	vec3 camNormal   = { 0.0, 1.0, 0.0 };
 	vec3 camLook     = { 0.0, 0.0, 0.0 };
 

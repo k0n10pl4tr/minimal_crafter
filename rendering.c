@@ -12,6 +12,16 @@
 //for memcpy
 #include <string.h>
 
+#define NUM_CHUNK_CACHED 256
+
+struct ChunkBufferData {
+	unsigned int vao;
+	unsigned int vbo;
+	unsigned int faces;
+	unsigned int xOffset, yOffset, zOffset;
+
+	unsigned char canDraw;
+};
 
 unsigned int cubeRenderingShader = 0;
 unsigned int cubeVertexArray = 0;
@@ -22,15 +32,19 @@ unsigned int cubeUniformModelLocation      = 0;
 unsigned int cubeUniformViewLocation       = 0;
 
 unsigned int worldChunkBuffer      = 0;
-unsigned int worldChunkFaces = 0;
 unsigned int worldChunkVao   = 0;
 
 unsigned int cubeTexture = 0;
 unsigned int cubeTerrainTexture = 0;
 
+unsigned int currentBlock = 0;
+const WorldChunk* wChunk;
 mat4x4 projectionMatrix;
 mat4x4 modelMatrix;
 mat4x4 viewMatrix;
+
+unsigned int chunkCachedStackSize = 0;
+struct ChunkBufferData chunkCached[NUM_CHUNK_CACHED];
 
 #define TO_RADIANS(x) (x * M_PI) / 180.0
 
@@ -172,9 +186,13 @@ initRenderingSystem()
 	glUniformMatrix4fv(cubeUniformModelLocation,      1, GL_FALSE, &modelMatrix[0][0]);
 	glUniformMatrix4fv(cubeUniformViewLocation,       1, GL_FALSE, &viewMatrix[0][0]);
 	glUseProgram(0);
-
-	cubeTexture = loadTextureFarbfeld("textures/test.ff");
+	
+	cubeTexture        = loadTextureFarbfeld("textures/test.ff");
 	cubeTerrainTexture = loadTextureFarbfeld("textures/terrain.ff");
+
+	for(unsigned int i = 0; i < NUM_CHUNK_CACHED; i++) {
+		chunkCached[i].canDraw = 0;
+	}
 }
 
 void
@@ -192,25 +210,25 @@ resizeRenderingSystem(int w, int h)
 void
 generateChunkModel(unsigned int x, unsigned int y, unsigned int z)
 {
-	if(worldChunkBuffer != 0)
-		glDeleteBuffers(1, &worldChunkBuffer);
-
-	worldChunkFaces = 0;
-
-	glGenBuffers(1, &worldChunkBuffer);
-	glBindBuffer(GL_ARRAY_BUFFER, worldChunkBuffer);
+	unsigned int chunkId = chunkCachedStackSize;
+	chunkCached[chunkId].faces = 0;
+	chunkCached[chunkId].xOffset = x;
+	chunkCached[chunkId].yOffset = y;
+	chunkCached[chunkId].zOffset = z;
+	glGenBuffers(1, &chunkCached[chunkId].vbo);
+	glBindBuffer(GL_ARRAY_BUFFER, chunkCached[chunkId].vbo);
 	glBufferData(GL_ARRAY_BUFFER, WORLD_CHUNK_NBLOCKS * 30 * 6 * sizeof(float), NULL, GL_DYNAMIC_DRAW);
 	float* bufferData = glMapBuffer(GL_ARRAY_BUFFER, GL_WRITE_ONLY);
 
 	float* vertexData = &bufferData[0];
 	float* texcoordData = &bufferData[WORLD_CHUNK_NBLOCKS * 18 * 6];
 	
-	const WorldChunk* wChunk = getWorldChunk(x, y, z);
+	wChunk = getWorldChunk(x, y, z);
 	for(int xb = 0; xb < WORLD_CHUNK_SIZE; xb++) 
 		for(int yb = 0; yb < WORLD_CHUNK_SIZE; yb++) 
 			for(int zb = 0; zb < WORLD_CHUNK_SIZE; zb++) {
 				#define GET_BLOCK(X, Y, Z) wChunk->blocks[X][Y][Z]
-				unsigned int currentBlock = GET_BLOCK(xb, yb, zb);
+				currentBlock = GET_BLOCK(xb, yb, zb);
 				if(currentBlock != 0) {
 					if(xb == 0 || GET_BLOCK(xb - 1, yb, zb) == 0) {
 						//Generate left face
@@ -225,7 +243,7 @@ generateChunkModel(unsigned int x, unsigned int y, unsigned int z)
 						
 						vertexData += 18;
 						texcoordData += 12;
-						worldChunkFaces++;
+						chunkCached[chunkId].faces++;
 					}
 
 					if(yb == 0 || GET_BLOCK(xb, yb - 1, zb) == 0) {
@@ -242,7 +260,7 @@ generateChunkModel(unsigned int x, unsigned int y, unsigned int z)
 						
 						vertexData += 18;
 						texcoordData += 12;
-						worldChunkFaces++;
+						chunkCached[chunkId].faces++;
 					}
 					if(xb == WORLD_CHUNK_SIZE - 1 || GET_BLOCK(xb + 1, yb, zb) == 0) {
 						//Generate right face
@@ -258,7 +276,7 @@ generateChunkModel(unsigned int x, unsigned int y, unsigned int z)
 
 						vertexData += 18;
 						texcoordData += 12;
-						worldChunkFaces++;
+						chunkCached[chunkId].faces++;
 					}
 
 					if(yb == WORLD_CHUNK_SIZE - 1 || GET_BLOCK(xb, yb + 1, zb) == 0) {
@@ -275,7 +293,7 @@ generateChunkModel(unsigned int x, unsigned int y, unsigned int z)
 
 						vertexData += 18;
 						texcoordData += 12;
-						worldChunkFaces++;
+						chunkCached[chunkId].faces++;
 					}
 
 					if(zb == WORLD_CHUNK_SIZE - 1 || !GET_BLOCK(xb, yb, zb + 1)) {
@@ -291,7 +309,7 @@ generateChunkModel(unsigned int x, unsigned int y, unsigned int z)
 						memcpy(texcoordData, BLOCKS[currentBlock - 1].texcoords[BLOCK_FRONT], sizeof(TexcoordFace));
 						vertexData += 18;
 						texcoordData += 12;
-						worldChunkFaces++;
+						chunkCached[chunkId].faces++;
 					}
 
 					if(zb == 0 || !GET_BLOCK(xb, yb, zb - 1)) {
@@ -307,7 +325,7 @@ generateChunkModel(unsigned int x, unsigned int y, unsigned int z)
 
 						vertexData += 18;
 						texcoordData += 12;
-						worldChunkFaces++;
+						chunkCached[chunkId].faces++;
 					}
 
 				}
@@ -317,14 +335,18 @@ generateChunkModel(unsigned int x, unsigned int y, unsigned int z)
 	if(!worldChunkVao)
 		glGenVertexArrays(1, &worldChunkVao);
 	
-	glBindVertexArray(worldChunkVao);
+	glGenVertexArrays(1, &chunkCached[chunkId].vao);
+	glBindVertexArray(chunkCached[chunkId].vao);
 	glEnableVertexAttribArray(0);
 	glEnableVertexAttribArray(1);
-	glBindBuffer(GL_ARRAY_BUFFER, worldChunkBuffer);
+	glBindBuffer(GL_ARRAY_BUFFER, chunkCached[chunkId].vbo);
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 3, (void*)(0));
 	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(float) * 2, (void*)(WORLD_CHUNK_NBLOCKS * 18 * 6 * sizeof(float)));
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glBindVertexArray(0);
+	
+	chunkCached[chunkId].canDraw = 1;
+	chunkCachedStackSize ++;
 }
 
 void
@@ -342,14 +364,22 @@ render()
 //	glDrawArrays(GL_TRIANGLES, 0, 36);
 //	glBindVertexArray(0);
 //	glBindTexture(GL_TEXTURE_2D, 0);
+	
+	for(unsigned int i = 0; i < NUM_CHUNK_CACHED; i++) {
+		if(chunkCached[i].canDraw) {
+			mat4x4_translate(modelMatrix, 
+					chunkCached[i].xOffset * WORLD_CHUNK_SIZE, 
+					chunkCached[i].yOffset * WORLD_CHUNK_SIZE, 
+					chunkCached[i].zOffset * WORLD_CHUNK_SIZE);
+			glUniformMatrix4fv(cubeUniformModelLocation, 1, GL_FALSE, &modelMatrix[0][0]);
 
-	if(worldChunkBuffer) {
-		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_2D, cubeTerrainTexture);	
-		glBindVertexArray(worldChunkVao);
-		glDrawArrays(GL_TRIANGLES, 0, worldChunkFaces * 6);
-		glBindVertexArray(0);
-		glBindTexture(GL_TEXTURE_2D, 0);
+			glActiveTexture(GL_TEXTURE0);
+			glBindTexture(GL_TEXTURE_2D, cubeTerrainTexture);	
+			glBindVertexArray(chunkCached[i].vao);
+			glDrawArrays(GL_TRIANGLES, 0, chunkCached[i].faces * 6);
+			glBindVertexArray(0);
+			glBindTexture(GL_TEXTURE_2D, 0);
+		}
 	}
 
 	glUseProgram(0);

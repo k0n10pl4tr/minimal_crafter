@@ -71,7 +71,7 @@ bigEndianToHost32(unsigned int beValue)
 unsigned short *
 getFarbfeldImageData(const char *path, unsigned int *wi, unsigned int *hi)
 {
-	char header[8];
+	char header[9];
 	unsigned int w, h;
 	unsigned short *imageData;
 	
@@ -81,11 +81,7 @@ getFarbfeldImageData(const char *path, unsigned int *wi, unsigned int *hi)
 		return (unsigned short*)-1;
 	}
 
-	fread(header, sizeof(header), 1, fp);
-	if(strcmp(header, "farbfeld") == 0) {
-		printf("This is not a farbfeld image: %s\n", path);
-		return (unsigned short*)-2;
-	}
+	fread(header, 8, 1, fp);
 
 	fread(&w, sizeof(w), 1, fp);
 	fread(&h, sizeof(h), 1, fp);

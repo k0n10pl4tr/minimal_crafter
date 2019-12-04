@@ -9,6 +9,7 @@
 
 #include "util.h"
 #include "rendering.h"
+#include "world.h"
 
 #include <unistd.h>
 
@@ -29,7 +30,19 @@ Window rootWindow, window;
 Atom   wmDeleteWindow;
 int screen;
 
-float angleView = 0.0;
+vec3 cameraPosition = { 0.0, 2.0, -10.0 };
+float cameraPitch   = M_PI / 2.0;
+float cameraYaw     = 0;
+
+char keyLeft = 0,
+	 keyRight = 0, 
+	 keyUp = 0, 
+	 keyDown = 0,
+	 keyFront = 0,
+	 keyBack = 0,
+	 keySpace = 0,
+	 keyShift = 0;
+
 
 int windowWidth, windowHeight;
 unsigned char running = 0;
@@ -152,6 +165,28 @@ updateWindow()
 
 				resizeRenderingSystem(windowWidth, windowHeight);
 			}
+			break;
+
+		case KeyPress:
+			if(XLookupKeysym(&xev.xkey, 0) == XK_Left)  keyLeft = 1;
+			if(XLookupKeysym(&xev.xkey, 0) == XK_Right) keyRight = 1;
+			if(XLookupKeysym(&xev.xkey, 0) == XK_Up)    keyUp = 1;
+			if(XLookupKeysym(&xev.xkey, 0) == XK_Down)  keyDown = 1;
+			if(XLookupKeysym(&xev.xkey, 0) == XK_w)     keyFront = 1;
+			if(XLookupKeysym(&xev.xkey, 0) == XK_s)     keyBack = 1;
+			if(XLookupKeysym(&xev.xkey, 0) == XK_space) keySpace = 1;
+			if(XLookupKeysym(&xev.xkey, 0) == XK_Shift_L) keyShift = 1;
+			break;
+		case KeyRelease:
+			if(XLookupKeysym(&xev.xkey, 0) == XK_Left)  keyLeft = 0;
+			if(XLookupKeysym(&xev.xkey, 0) == XK_Right) keyRight = 0;
+			if(XLookupKeysym(&xev.xkey, 0) == XK_Up)    keyUp = 0;
+			if(XLookupKeysym(&xev.xkey, 0) == XK_Down)  keyDown = 0;
+			if(XLookupKeysym(&xev.xkey, 0) == XK_w)     keyFront = 0;
+			if(XLookupKeysym(&xev.xkey, 0) == XK_s)     keyBack = 0;
+			if(XLookupKeysym(&xev.xkey, 0) == XK_space) keySpace = 0;
+			if(XLookupKeysym(&xev.xkey, 0) == XK_Shift_L) keyShift = 0;
+			break;
 		}
 	}
 }
@@ -170,18 +205,43 @@ main(int argc, char *argv[])
 {
 	initWindow();
 	running = 1;
+	
+	createWorld(1, 1, 1);
+	generateChunkModel(0, 0, 0);
 
-	vec3 camPosition = { 0.0, -10.0, 1.0 };
 	vec3 camNormal   = { 0.0, 1.0, 0.0 };
 	vec3 camLook     = { 0.0, 0.0, 0.0 };
 
 	while(running) {
 		double startProcess = getCurrentTimeNano();
 		
-		camPosition[0] = sin(getCurrentTimeNano()) * 10;
-		camPosition[2] = cos(getCurrentTimeNano()) * 10;
-		setCamera(camPosition, camNormal, camLook);
+		if(keyLeft) cameraYaw -= 5.0/60.0;
+		if(keyRight) cameraYaw += 5.0/60.0;
+		if(keyUp) cameraPitch += 5.0/60.0;
+		if(keyDown) cameraPitch -= 5.0/60.0;
 
+		if(keyFront) { 
+			cameraPosition[0] += cos(cameraYaw) * 10.0/60.0;
+			cameraPosition[2] += sin(cameraYaw) * 10.0/60.0;
+		}
+
+		if(keyBack) { 
+			cameraPosition[0] -= cos(cameraYaw) * 10.0/60.0;
+			cameraPosition[2] -= sin(cameraYaw) * 10.0/60.0;
+		}
+		
+		if(keySpace) 
+			cameraPosition[1] += 10.0/60.0;
+		
+		if(keyShift)
+			cameraPosition[1] -= 10.0/60.0;
+
+		camLook[0] = cameraPosition[0] + cos(cameraYaw);
+		camLook[2] = cameraPosition[2] + sin(cameraYaw);
+		camLook[1] = cameraPosition[1] + cos(cameraPitch);
+	
+
+		setCamera(cameraPosition, camNormal, camLook);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		render();

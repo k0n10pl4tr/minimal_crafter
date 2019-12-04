@@ -1,6 +1,6 @@
 
 cc=tcc
-cflags=-Wall -Werror
+cflags=-Wall -Werror 
 libs=-lX11 -lGLX -lm
 
 sources= main.o \
@@ -8,6 +8,7 @@ sources= main.o \
 		 glad.o \
 		 util.o \
 		 rendering.o \
+		 world.o
 
 all: crafting_game
 

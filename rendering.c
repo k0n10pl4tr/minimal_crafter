@@ -1,12 +1,12 @@
 #include "rendering.h"
 
 #include "glad.h"
-#include "glutil.h"
 #include "linmath.h"
 
-#include <stdio.h>
+#include "glutil.h"
+#include "world.h"
 
-static void updateCameraMatrix();
+#include <stdio.h>
 
 unsigned int cubeRenderingShader = 0;
 unsigned int cubeVertexArray = 0;
@@ -15,6 +15,10 @@ unsigned int cubeVertexBuffer = 0;
 unsigned int cubeUniformProjectionLocation = 0;
 unsigned int cubeUniformModelLocation      = 0;
 unsigned int cubeUniformViewLocation       = 0;
+
+unsigned int worldChunkBuffer      = 0;
+unsigned int worldChunkFaces = 0;
+unsigned int worldChunkVao   = 0;
 
 unsigned int cubeTexture = 0;
 
@@ -122,7 +126,7 @@ vec3 eyeDirection = { 0.0, 0.0, 1.0 };
 vec3 eyePosition  = { 0.0, 0.0, 0.0 };
 vec3 eyeUpNormal  = { 0.0, 1.0, 0.0 };
 
-	void
+void
 initRenderingSystem()
 {
 	unsigned int cubeRenderingVertex = loadShader("shaders/cubeRendering.vsh", GL_VERTEX_SHADER);
@@ -179,6 +183,171 @@ resizeRenderingSystem(int w, int h)
 }
 
 void
+generateChunkModel(unsigned int x, unsigned int y, unsigned int z)
+{
+	if(worldChunkBuffer != 0)
+		glDeleteBuffers(1, &worldChunkBuffer);
+
+	worldChunkFaces = 0;
+
+	glGenBuffers(1, &worldChunkBuffer);
+	glBindBuffer(GL_ARRAY_BUFFER, worldChunkBuffer);
+	glBufferData(GL_ARRAY_BUFFER, WORLD_CHUNK_NBLOCKS * 30 * 6 * sizeof(float), NULL, GL_DYNAMIC_DRAW);
+	float* bufferData = glMapBuffer(GL_ARRAY_BUFFER, GL_WRITE_ONLY);
+
+	float* vertexData = &bufferData[0];
+	float* texcoordData = &bufferData[WORLD_CHUNK_NBLOCKS * 18 * 6];
+	
+	const WorldChunk* wChunk = getWorldChunk(x, y, z);
+	for(int xb = 0; xb < WORLD_CHUNK_SIZE; xb++) 
+		for(int yb = 0; yb < WORLD_CHUNK_SIZE; yb++) 
+			for(int zb = 0; zb < WORLD_CHUNK_SIZE; zb++) {
+				#define GET_BLOCK(X, Y, Z) wChunk->blocks[X][Y][Z]
+				unsigned int currentBlock = GET_BLOCK(xb, yb, zb);
+				if(currentBlock != 0) {
+					if(xb == 0 || GET_BLOCK(xb - 1, yb, zb) == 0) {
+						//Generate left face
+						vertexData[0]  = -1 + xb * 2; vertexData[1]  = -1 + yb * 2; vertexData[2]  = -1 + zb * 2;
+						vertexData[3]  = -1 + xb * 2; vertexData[4]  = -1 + yb * 2; vertexData[5]  =  1 + zb * 2;
+						vertexData[6]  = -1 + xb * 2; vertexData[7]  =  1 + yb * 2; vertexData[8]  =  1 + zb * 2;
+						vertexData[9]  = -1 + xb * 2; vertexData[10] =  1 + yb * 2; vertexData[11] =  1 + zb * 2;
+						vertexData[12] = -1 + xb * 2; vertexData[13] =  1 + yb * 2; vertexData[14] = -1 + zb * 2;
+						vertexData[15] = -1 + xb * 2; vertexData[16] = -1 + yb * 2; vertexData[17] = -1 + zb * 2;
+
+						texcoordData[0]  = 0; texcoordData[1]  = 0;
+                        texcoordData[2]  = 1; texcoordData[3]  = 0;
+                        texcoordData[4]  = 1; texcoordData[5]  = 1;
+                        texcoordData[6]  = 1; texcoordData[7]  = 1;
+                        texcoordData[8]  = 0; texcoordData[9]  = 1;
+                        texcoordData[10] = 0; texcoordData[11] = 0;
+
+						vertexData += 18;
+						texcoordData += 12;
+						worldChunkFaces++;
+					}
+
+					if(yb == 0 || GET_BLOCK(xb, yb - 1, zb) == 0) {
+						//Generate bottom face
+						vertexData[0]  = -1.0 + xb * 2; vertexData[1]  = -1.0 + yb * 2; vertexData[2]  = -1.0 + zb * 2;
+						vertexData[3]  =  1.0 + xb * 2; vertexData[4]  = -1.0 + yb * 2; vertexData[5]  = -1.0 + zb * 2;
+						vertexData[6]  =  1.0 + xb * 2; vertexData[7]  = -1.0 + yb * 2; vertexData[8]  =  1.0 + zb * 2;
+						vertexData[9]  =  1.0 + xb * 2; vertexData[10] = -1.0 + yb * 2; vertexData[11] =  1.0 + zb * 2;
+						vertexData[12] = -1.0 + xb * 2; vertexData[13] = -1.0 + yb * 2; vertexData[14] =  1.0 + zb * 2;
+						vertexData[15] = -1.0 + xb * 2; vertexData[16] = -1.0 + yb * 2; vertexData[17] = -1.0 + zb * 2;
+
+						texcoordData[0]  = 0; texcoordData[1]  = 0;
+                        texcoordData[2]  = 1; texcoordData[3]  = 0;
+                        texcoordData[4]  = 1; texcoordData[5]  = 1;
+                        texcoordData[6]  = 1; texcoordData[7]  = 1;
+                        texcoordData[8]  = 0; texcoordData[9]  = 1;
+                        texcoordData[10] = 0; texcoordData[11] = 0;
+
+						vertexData += 18;
+						texcoordData += 12;
+						worldChunkFaces++;
+					}
+					if(xb == WORLD_CHUNK_SIZE - 1 || GET_BLOCK(xb + 1, yb, zb) == 0) {
+						//Generate right face
+						vertexData[0]  =  1 + xb * 2; vertexData[1]  = -1 + yb * 2; vertexData[2]  =  1 + zb * 2;
+						vertexData[3]  =  1 + xb * 2; vertexData[4]  = -1 + yb * 2; vertexData[5]  = -1 + zb * 2;
+						vertexData[6]  =  1 + xb * 2; vertexData[7]  =  1 + yb * 2; vertexData[8]  = -1 + zb * 2;
+						vertexData[9]  =  1 + xb * 2; vertexData[10] =  1 + yb * 2; vertexData[11] = -1 + zb * 2;
+						vertexData[12] =  1 + xb * 2; vertexData[13] =  1 + yb * 2; vertexData[14] =  1 + zb * 2;
+						vertexData[15] =  1 + xb * 2; vertexData[16] = -1 + yb * 2; vertexData[17] =  1 + zb * 2;
+
+						texcoordData[0]  = 0; texcoordData[1]  = 0;
+                        texcoordData[2]  = 1; texcoordData[3]  = 0;
+                        texcoordData[4]  = 1; texcoordData[5]  = 1;
+                        texcoordData[6]  = 1; texcoordData[7]  = 1;
+                        texcoordData[8]  = 0; texcoordData[9]  = 1;
+                        texcoordData[10] = 0; texcoordData[11] = 0;
+
+						vertexData += 18;
+						texcoordData += 12;
+						worldChunkFaces++;
+					}
+
+					if(yb == WORLD_CHUNK_SIZE - 1 || GET_BLOCK(xb, yb + 1, zb) == 0) {
+						//Generate top face
+						vertexData[0]  = -1 + xb * 2; vertexData[1]  =  1 + yb * 2; vertexData[2]  = -1 + zb * 2;
+						vertexData[3]  =  1 + xb * 2; vertexData[4]  =  1 + yb * 2; vertexData[5]  = -1 + zb * 2;
+						vertexData[6]  =  1 + xb * 2; vertexData[7]  =  1 + yb * 2; vertexData[8]  =  1 + zb * 2;
+						vertexData[9]  =  1 + xb * 2; vertexData[10] =  1 + yb * 2; vertexData[11] =  1 + zb * 2;
+						vertexData[12] = -1 + xb * 2; vertexData[13] =  1 + yb * 2; vertexData[14] =  1 + zb * 2;
+						vertexData[15] = -1 + xb * 2; vertexData[16] =  1 + yb * 2; vertexData[17] = -1 + zb * 2;
+
+						texcoordData[0]  = 0; texcoordData[1]  = 0;
+						texcoordData[2]  = 1; texcoordData[3]  = 0;
+						texcoordData[4]  = 1; texcoordData[5]  = 1;
+						texcoordData[6]  = 1; texcoordData[7]  = 1;
+						texcoordData[8]  = 0; texcoordData[9]  = 1;
+						texcoordData[10] = 0; texcoordData[11] = 0;
+
+						vertexData += 18;
+						texcoordData += 12;
+						worldChunkFaces++;
+					}
+
+					if(zb == WORLD_CHUNK_SIZE - 1 || !GET_BLOCK(xb, yb, zb + 1)) {
+						//Generate front face
+						vertexData[0]  = -1 + xb * 2; vertexData[1]  = -1 + yb * 2; vertexData[2]  =  1 + zb * 2;
+						vertexData[3]  =  1 + xb * 2; vertexData[4]  = -1 + yb * 2; vertexData[5]  =  1 + zb * 2;
+						vertexData[6]  =  1 + xb * 2; vertexData[7]  =  1 + yb * 2; vertexData[8]  =  1 + zb * 2;
+						vertexData[9]  =  1 + xb * 2; vertexData[10] =  1 + yb * 2; vertexData[11] =  1 + zb * 2;
+						vertexData[12] = -1 + xb * 2; vertexData[13] =  1 + yb * 2; vertexData[14] =  1 + zb * 2;
+						vertexData[15] = -1 + xb * 2; vertexData[16] = -1 + yb * 2; vertexData[17] =  1 + zb * 2;
+
+						texcoordData[0]  = 0; texcoordData[1]  = 0;
+                        texcoordData[2]  = 1; texcoordData[3]  = 0;
+                        texcoordData[4]  = 1; texcoordData[5]  = 1;
+                        texcoordData[6]  = 1; texcoordData[7]  = 1;
+                        texcoordData[8]  = 0; texcoordData[9]  = 1;
+                        texcoordData[10] = 0; texcoordData[11] = 0;
+
+						vertexData += 18;
+						texcoordData += 12;
+						worldChunkFaces++;
+					}
+
+					if(zb == 0 || !GET_BLOCK(xb, yb, zb - 1)) {
+						//Generate back face
+						vertexData[0]  =  1 + xb * 2; vertexData[1]  = -1 + yb * 2; vertexData[2]  = -1 + zb * 2;
+						vertexData[3]  = -1 + xb * 2; vertexData[4]  = -1 + yb * 2; vertexData[5]  = -1 + zb * 2;
+						vertexData[6]  = -1 + xb * 2; vertexData[7]  =  1 + yb * 2; vertexData[8]  = -1 + zb * 2;
+						vertexData[9]  = -1 + xb * 2; vertexData[10] =  1 + yb * 2; vertexData[11] = -1 + zb * 2;
+						vertexData[12] =  1 + xb * 2; vertexData[13] =  1 + yb * 2; vertexData[14] = -1 + zb * 2;
+						vertexData[15] =  1 + xb * 2; vertexData[16] = -1 + yb * 2; vertexData[17] = -1 + zb * 2;
+
+						texcoordData[0]  = 0; texcoordData[1]  = 0;
+                        texcoordData[2]  = 1; texcoordData[3]  = 0;
+                        texcoordData[4]  = 1; texcoordData[5]  = 1;
+                        texcoordData[6]  = 1; texcoordData[7]  = 1;
+                        texcoordData[8]  = 0; texcoordData[9]  = 1;
+                        texcoordData[10] = 0; texcoordData[11] = 0;
+
+						vertexData += 18;
+						texcoordData += 12;
+						worldChunkFaces++;
+					}
+
+				}
+			}
+	glUnmapBuffer(GL_ARRAY_BUFFER);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	if(!worldChunkVao)
+		glGenVertexArrays(1, &worldChunkVao);
+	
+	glBindVertexArray(worldChunkVao);
+	glEnableVertexAttribArray(0);
+	glEnableVertexAttribArray(1);
+	glBindBuffer(GL_ARRAY_BUFFER, worldChunkBuffer);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 3, (void*)(0));
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(float) * 2, (void*)(WORLD_CHUNK_NBLOCKS * 18 * 6 * sizeof(float)));
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	glBindVertexArray(0);
+}
+
+void
 render()
 {
 	glEnable(GL_DEPTH_TEST);
@@ -186,12 +355,21 @@ render()
 	
 	glUniformMatrix4fv(cubeUniformViewLocation, 1, GL_FALSE, &viewMatrix[0][0]);
 	
-	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_2D, cubeTexture);
-	glBindVertexArray(cubeVertexArray);
-	glDrawArrays(GL_TRIANGLES, 0, 36);
-	glBindVertexArray(0);
-	glBindTexture(GL_TEXTURE_2D, 0);
+//	glActiveTexture(GL_TEXTURE0);
+//	glBindTexture(GL_TEXTURE_2D, cubeTexture);
+//	glBindVertexArray(cubeVertexArray);
+//	glDrawArrays(GL_TRIANGLES, 0, 36);
+//	glBindVertexArray(0);
+//	glBindTexture(GL_TEXTURE_2D, 0);
+
+	if(worldChunkBuffer) {
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, cubeTexture);	
+		glBindVertexArray(worldChunkVao);
+		glDrawArrays(GL_TRIANGLES, 0, worldChunkFaces * 6);
+		glBindVertexArray(0);
+		glBindTexture(GL_TEXTURE_2D, 0);
+	}
 
 	glUseProgram(0);
 	glDisable(GL_DEPTH_TEST);

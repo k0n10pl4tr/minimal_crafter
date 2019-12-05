@@ -1,17 +1,15 @@
 #include <stdio.h>
 #include <stdlib.h>
-
-#include <X11/Xlib.h>
 #include <time.h>
-
-#include "glad.h"
-#include <GL/glx.h>
+#include <unistd.h>
+#include <X11/Xlib.h>
 
 #include "util.h"
 #include "rendering.h"
 #include "world.h"
+#include "glad.h"
 
-#include <unistd.h>
+#include <GL/glx.h>
 
 #define FRAMES_PER_SEC 60.0
 
@@ -21,37 +19,41 @@
 
 typedef GLXContext (*glXCreateContextAttribsARBProc)(Display*, GLXFBConfig, GLXContext, Bool, const int*);
 
-static void initWindow();
-static void updateWindow();
-static void terminateWindow();
+void initWindow();
+void updateWindow();
+void terminateWindow();
+void processKeyState(XEvent* xev, unsigned char state);
+void processCamera(float cameraMoveSpeed, float cameraRotateSpeed);
 
-Display* dpy;
-Window rootWindow, window;
-Atom   wmDeleteWindow;
-int screen;
+static Display* dpy;
+static Window   rootWindow, window;
+static Atom     wmDeleteWindow;
+static int      screen;
 
-vec3 cameraPosition = { 0.0, 2.0, -10.0 };
-float cameraPitch   = M_PI / 2.0;
-float cameraYaw     = 0;
+static vec3  cameraPosition = { 0.0, 2.0, -10.0 };
+static vec3  cameraNormal   = { 0.0, 1.0, 0.0 };
+static vec3  cameraLook     = { 0.0, 0.0, 0.0 };
 
-char keyLeft = 0,
-	 keyRight = 0, 
-	 keyUp = 0, 
-	 keyDown = 0,
-	 keyFront = 0,
-	 keyBack = 0,
-	 keySpace = 0,
-	 keyShift = 0;
+static float cameraPitch   = M_PI / 2.0;
+static float cameraYaw     = 0;
+
+static char keyLeft = 0,
+	    keyRight = 0, 
+	    keyUp = 0, 
+	    keyDown = 0,
+	    keyFront = 0,
+	    keyBack = 0,
+	    keySpace = 0,
+	    keyShift = 0;
 
 
-int windowWidth, windowHeight;
-unsigned char running = 0;
+static int windowWidth, windowHeight;
+static unsigned char running = 0;
 
-GLXFBConfig fbConfig;
-GLXContext  glContext;
+static GLXFBConfig fbConfig;
+static GLXContext  glContext;
 
-static int visualAttribs[] =
-{
+static int visualAttribs[] = {
 	GLX_X_RENDERABLE    , True,
 	GLX_DRAWABLE_TYPE   , GLX_WINDOW_BIT,
 	GLX_RENDER_TYPE     , GLX_RGBA_BIT,
@@ -75,9 +77,17 @@ static int glxContextAttribs[] = {
 	None
 };
 
-static void
+void
 initWindow()
 {
+	int glxMajor, glxMinor;
+	int fbConfigCount;
+	int glMajorVersion, glMinorVersion;
+	XSetWindowAttributes swa;
+	glXCreateContextAttribsARBProc contextLoader = NULL;
+	GLXFBConfig* fbConfigs;
+	XVisualInfo* vi;
+
 	dpy = XOpenDisplay(NULL);
 	if(!dpy) {
 		printf("Could not init X11\n");
@@ -85,27 +95,23 @@ initWindow()
 	}
 	screen = DefaultScreen(dpy);
 
-	int glxMajor, glxMinor;
 	glXQueryVersion(dpy, &glxMajor, &glxMinor);
-	if(glxMinor < 3)
-	{
+	if(glxMinor < 3) {
 		printf("Invalid GLX Version\n");
 		exit(-3);
 	}
-	int fbConfigCount;
-	GLXFBConfig* fbConfigs = glXChooseFBConfig(dpy, screen, visualAttribs, &fbConfigCount);
+	fbConfigs = glXChooseFBConfig(dpy, screen, visualAttribs, &fbConfigCount);
 	
 	printf("Found %d config count, selecting the first one, anyway\n", fbConfigCount);
 
 	fbConfig = fbConfigs[0];
 	XFree(fbConfigs);
 
-	XVisualInfo* vi = glXGetVisualFromFBConfig(dpy, fbConfig);
+	vi = glXGetVisualFromFBConfig(dpy, fbConfig);
 	
 	rootWindow = DefaultRootWindow(dpy);
 	wmDeleteWindow = XInternAtom(dpy, "WM_DELETE_WINDOW", 0);
 
-	XSetWindowAttributes swa;
 	swa.colormap   = XCreateColormap(dpy, rootWindow, vi->visual, AllocNone);
 	swa.event_mask = KeyPressMask | KeyReleaseMask | StructureNotifyMask;
 
@@ -118,7 +124,6 @@ initWindow()
 	XStoreName(dpy, window, "Hello");
 	XMapWindow(dpy, window);
 	
-	glXCreateContextAttribsARBProc contextLoader = NULL;
 	contextLoader = (glXCreateContextAttribsARBProc)glXGetProcAddressARB((const unsigned char*)"glXCreateContextAttribsARB");
 	
 	glContext = contextLoader(dpy, fbConfig, 0, True, glxContextAttribs);
@@ -129,7 +134,6 @@ initWindow()
 		exit(-2);
 	}
 	
-	int glMajorVersion, glMinorVersion;
 	glGetIntegerv(GL_MAJOR_VERSION, &glMajorVersion);
 	glGetIntegerv(GL_MINOR_VERSION, &glMinorVersion);
 	
@@ -141,12 +145,9 @@ initWindow()
 	}
 
 	printf("OpenGL Version: %d.%d\n", glMajorVersion, glMinorVersion);
-
-	startClock();
-	initRenderingSystem();
 }
 
-static void
+void
 updateWindow()
 {
 	glXSwapBuffers(dpy, window);
@@ -168,30 +169,16 @@ updateWindow()
 			break;
 
 		case KeyPress:
-			if(XLookupKeysym(&xev.xkey, 0) == XK_Left)  keyLeft = 1;
-			if(XLookupKeysym(&xev.xkey, 0) == XK_Right) keyRight = 1;
-			if(XLookupKeysym(&xev.xkey, 0) == XK_Up)    keyUp = 1;
-			if(XLookupKeysym(&xev.xkey, 0) == XK_Down)  keyDown = 1;
-			if(XLookupKeysym(&xev.xkey, 0) == XK_w)     keyFront = 1;
-			if(XLookupKeysym(&xev.xkey, 0) == XK_s)     keyBack = 1;
-			if(XLookupKeysym(&xev.xkey, 0) == XK_space) keySpace = 1;
-			if(XLookupKeysym(&xev.xkey, 0) == XK_Shift_L) keyShift = 1;
+			processKeyState(&xev, 1);
 			break;
 		case KeyRelease:
-			if(XLookupKeysym(&xev.xkey, 0) == XK_Left)  keyLeft = 0;
-			if(XLookupKeysym(&xev.xkey, 0) == XK_Right) keyRight = 0;
-			if(XLookupKeysym(&xev.xkey, 0) == XK_Up)    keyUp = 0;
-			if(XLookupKeysym(&xev.xkey, 0) == XK_Down)  keyDown = 0;
-			if(XLookupKeysym(&xev.xkey, 0) == XK_w)     keyFront = 0;
-			if(XLookupKeysym(&xev.xkey, 0) == XK_s)     keyBack = 0;
-			if(XLookupKeysym(&xev.xkey, 0) == XK_space) keySpace = 0;
-			if(XLookupKeysym(&xev.xkey, 0) == XK_Shift_L) keyShift = 0;
+			processKeyState(&xev, 0);
 			break;
 		}
 	}
 }
 
-static void
+void
 terminateWindow()
 {
 	glXMakeCurrent(dpy, None, None);
@@ -200,55 +187,77 @@ terminateWindow()
 	XCloseDisplay(dpy);
 }
 
+void
+processKeyState(XEvent *xev, unsigned char state)
+{
+	if(XLookupKeysym(&xev->xkey, 0) == XK_Left)   keyLeft = state;
+	if(XLookupKeysym(&xev->xkey, 0) == XK_Right)  keyRight = state;
+	if(XLookupKeysym(&xev->xkey, 0) == XK_Up)     keyUp = state;
+	if(XLookupKeysym(&xev->xkey, 0) == XK_Down)   keyDown = state;
+	if(XLookupKeysym(&xev->xkey, 0) == XK_w)      keyFront = state;
+	if(XLookupKeysym(&xev->xkey, 0) == XK_s)      keyBack = state;
+	if(XLookupKeysym(&xev->xkey, 0) == XK_space)  keySpace = state;
+	if(XLookupKeysym(&xev->xkey, 0) == XK_Shift_L) keyShift = state;
+}
+
+void
+processCamera(float cameraMoveSpeed, float cameraRotateSpeed)
+{
+	if(keyLeft) cameraYaw -= cameraRotateSpeed;
+	if(keyRight) cameraYaw += cameraRotateSpeed;
+	if(keyUp) cameraPitch += cameraRotateSpeed;
+	if(keyDown) cameraPitch -= cameraRotateSpeed;
+
+	if(keyFront) { 
+		cameraPosition[0] += cos(cameraYaw) * cameraMoveSpeed;
+		cameraPosition[2] += sin(cameraYaw) * cameraMoveSpeed;
+	}
+
+	if(keyBack) { 
+		cameraPosition[0] -= cos(cameraYaw) * cameraMoveSpeed;
+		cameraPosition[2] -= sin(cameraYaw) * cameraMoveSpeed;
+	}
+	
+	if(keySpace) 
+		cameraPosition[1] += cameraMoveSpeed;
+	
+	if(keyShift)
+		cameraPosition[1] -= cameraMoveSpeed;
+
+	cameraLook[0] = cameraPosition[0] + cos(cameraYaw);
+	cameraLook[2] = cameraPosition[2] + sin(cameraYaw);
+	cameraLook[1] = cameraPosition[1] + cos(cameraPitch);
+}
+
 int
 main(int argc, char *argv[])
 {
 	initWindow();
-	running = 1;
-	
+	startClock();
+	initRenderingSystem();
+
 	createWorld(2, 4, 2);
 	for(unsigned int i = 0; i < 2 * 4 * 2; i++)
 		generateChunkModel(i % 2, (i / 2) % 4, i / 8);
-	vec3 camNormal   = { 0.0, 1.0, 0.0 };
-	vec3 camLook     = { 0.0, 0.0, 0.0 };
+
+	running = 1;
 
 	while(running) {
-		double startProcess = getCurrentTimeNano();
+		double startProcess, endProcess;
+		startProcess = getCurrentTimeNano();
 		
-		if(keyLeft) cameraYaw -= 5.0/60.0;
-		if(keyRight) cameraYaw += 5.0/60.0;
-		if(keyUp) cameraPitch += 5.0/60.0;
-		if(keyDown) cameraPitch -= 5.0/60.0;
+		processCamera(10.0/60.0, 5.0/60.0);
 
-		if(keyFront) { 
-			cameraPosition[0] += cos(cameraYaw) * 10.0/60.0;
-			cameraPosition[2] += sin(cameraYaw) * 10.0/60.0;
-		}
-
-		if(keyBack) { 
-			cameraPosition[0] -= cos(cameraYaw) * 10.0/60.0;
-			cameraPosition[2] -= sin(cameraYaw) * 10.0/60.0;
-		}
-		
-		if(keySpace) 
-			cameraPosition[1] += 10.0/60.0;
-		
-		if(keyShift)
-			cameraPosition[1] -= 10.0/60.0;
-
-		camLook[0] = cameraPosition[0] + cos(cameraYaw);
-		camLook[2] = cameraPosition[2] + sin(cameraYaw);
-		camLook[1] = cameraPosition[1] + cos(cameraPitch);
-	
-
-		setCamera(cameraPosition, camNormal, camLook);
+		setCamera(cameraPosition, cameraNormal, cameraLook);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		render();
 		
 		updateWindow();
-		double end = getCurrentTimeNano();
-		sleepNanosec((1.0 / FRAMES_PER_SEC) - (end - startProcess));
+
+		endProcess = getCurrentTimeNano();
+		sleepNanosec((1.0 / FRAMES_PER_SEC) - (endProcess - startProcess));
 	}
 	terminateWindow();
 }
+

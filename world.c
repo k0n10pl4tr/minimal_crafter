@@ -10,6 +10,8 @@ struct {
 	WorldChunk* cachedChunks;
 } world;
 
+void generateChunk(WorldChunk *chunk, unsigned int xc, unsigned int yc, unsigned int zc);
+
 void
 createWorld(unsigned int w, unsigned int h, unsigned int d)
 {
@@ -30,11 +32,7 @@ createWorld(unsigned int w, unsigned int h, unsigned int d)
 		world.cachedChunks[i].yOffset = y;
 		world.cachedChunks[i].zOffset = z;
 		
-		for(int xb = 0; xb < WORLD_CHUNK_SIZE; xb++)
-			for(int yb = 0; yb < WORLD_CHUNK_SIZE; yb++)
-				for(int zb = 0; zb < WORLD_CHUNK_SIZE; zb++) {
-					world.cachedChunks[i].blocks[xb][yb][zb] = rand() % 4;
-				}	
+		generateChunk(&world.cachedChunks[i], x, y, z);
 	}
 }
 
@@ -42,4 +40,15 @@ const WorldChunk*
 getWorldChunk(unsigned int xC, unsigned int yC, unsigned int zC)
 {
 	return &world.cachedChunks[xC + yC * world.width + zC * world.height * world.width];
+}
+
+void
+generateChunk(WorldChunk *chunk, unsigned int xc, unsigned int yc, unsigned int zc)
+{
+	for(int i = 0; i < WORLD_CHUNK_NBLOCKS; i++) {
+		int xb = (i % WORLD_CHUNK_SIZE);
+		int yb = (i / WORLD_CHUNK_SIZE) % WORLD_CHUNK_SIZE;
+		int zb = (i / (WORLD_CHUNK_SIZE * WORLD_CHUNK_SIZE));
+		chunk->blocks[xb][yb][zb] = rand() % 4;
+	}
 }

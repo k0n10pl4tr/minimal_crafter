@@ -14,41 +14,44 @@
 
 #define NUM_CHUNK_CACHED 256
 
-struct ChunkBufferData {
+void generateFace(BlockFaceDirection face, unsigned int blockId, float *vertexData, float *texcoordData, int xb, int yb, int zb);
+
+typedef struct ChunkBufferData {
 	unsigned int vao;
 	unsigned int vbo;
 	unsigned int faces;
 	unsigned int xOffset, yOffset, zOffset;
 
 	unsigned char canDraw;
-};
+} ChunkBufferData;
 
-unsigned int cubeRenderingShader = 0;
-unsigned int cubeVertexArray = 0;
-unsigned int cubeVertexBuffer = 0;
+static unsigned int cubeRenderingShader = 0;
+static unsigned int cubeVertexArray = 0;
+static unsigned int cubeVertexBuffer = 0;
 
-unsigned int cubeUniformProjectionLocation = 0;
-unsigned int cubeUniformModelLocation      = 0;
-unsigned int cubeUniformViewLocation       = 0;
+static unsigned int cubeUniformProjectionLocation = 0;
+static unsigned int cubeUniformModelLocation      = 0;
+static unsigned int cubeUniformViewLocation       = 0;
 
-unsigned int worldChunkBuffer      = 0;
-unsigned int worldChunkVao   = 0;
+static unsigned int worldChunkBuffer      = 0;
+static unsigned int worldChunkVao   = 0;
 
-unsigned int cubeTexture = 0;
-unsigned int cubeTerrainTexture = 0;
+static unsigned int cubeTexture = 0;
+static unsigned int cubeTerrainTexture = 0;
 
-unsigned int currentBlock = 0;
-const WorldChunk* wChunk;
-mat4x4 projectionMatrix;
-mat4x4 modelMatrix;
-mat4x4 viewMatrix;
+static unsigned int currentBlock = 0;
 
-unsigned int chunkCachedStackSize = 0;
-struct ChunkBufferData chunkCached[NUM_CHUNK_CACHED];
+static const WorldChunk* wChunk;
+static mat4x4 projectionMatrix;
+static mat4x4 modelMatrix;
+static mat4x4 viewMatrix;
+
+static unsigned int chunkCachedStackSize = 0;
+static ChunkBufferData chunkCached[NUM_CHUNK_CACHED];
 
 #define TO_RADIANS(x) (x * M_PI) / 180.0
 
-const float cubeBufferData[] = {
+static const float cubeBufferData[] = {
 	//Back face
 	 1, -1, -1,
 	-1, -1, -1,
@@ -142,10 +145,6 @@ const float cubeBufferData[] = {
 	0, 0
 };
 
-vec3 eyeDirection = { 0.0, 0.0, 1.0 };
-vec3 eyePosition  = { 0.0, 0.0, 0.0 };
-vec3 eyeUpNormal  = { 0.0, 1.0, 0.0 };
-
 void
 initRenderingSystem()
 {
@@ -179,7 +178,7 @@ initRenderingSystem()
 
 	mat4x4_perspective(projectionMatrix, TO_RADIANS(70.0), 4.0/3.0, 0.01, 100.0);
 	mat4x4_identity(modelMatrix);
-	mat4x4_look_at(viewMatrix, eyeDirection, eyePosition, eyeUpNormal);
+	mat4x4_identity(viewMatrix);
 
 	glUseProgram(cubeRenderingShader);
 	glUniformMatrix4fv(cubeUniformProjectionLocation, 1, GL_FALSE, &projectionMatrix[0][0]);
@@ -215,121 +214,72 @@ generateChunkModel(unsigned int x, unsigned int y, unsigned int z)
 	chunkCached[chunkId].xOffset = x;
 	chunkCached[chunkId].yOffset = y;
 	chunkCached[chunkId].zOffset = z;
+
 	glGenBuffers(1, &chunkCached[chunkId].vbo);
 	glBindBuffer(GL_ARRAY_BUFFER, chunkCached[chunkId].vbo);
 	glBufferData(GL_ARRAY_BUFFER, WORLD_CHUNK_NBLOCKS * 30 * 6 * sizeof(float), NULL, GL_DYNAMIC_DRAW);
-	float* bufferData = glMapBuffer(GL_ARRAY_BUFFER, GL_WRITE_ONLY);
 
+	float* bufferData = glMapBuffer(GL_ARRAY_BUFFER, GL_WRITE_ONLY);
 	float* vertexData = &bufferData[0];
 	float* texcoordData = &bufferData[WORLD_CHUNK_NBLOCKS * 18 * 6];
 	
 	wChunk = getWorldChunk(x, y, z);
-	for(int xb = 0; xb < WORLD_CHUNK_SIZE; xb++) 
-		for(int yb = 0; yb < WORLD_CHUNK_SIZE; yb++) 
-			for(int zb = 0; zb < WORLD_CHUNK_SIZE; zb++) {
-				#define GET_BLOCK(X, Y, Z) wChunk->blocks[X][Y][Z]
-				currentBlock = GET_BLOCK(xb, yb, zb);
-				if(currentBlock != 0) {
-					if(xb == 0 || GET_BLOCK(xb - 1, yb, zb) == 0) {
-						//Generate left face
-						vertexData[0]  = -1 + xb * 2; vertexData[1]  = -1 + yb * 2; vertexData[2]  = -1 + zb * 2;
-						vertexData[3]  = -1 + xb * 2; vertexData[4]  = -1 + yb * 2; vertexData[5]  =  1 + zb * 2;
-						vertexData[6]  = -1 + xb * 2; vertexData[7]  =  1 + yb * 2; vertexData[8]  =  1 + zb * 2;
-						vertexData[9]  = -1 + xb * 2; vertexData[10] =  1 + yb * 2; vertexData[11] =  1 + zb * 2;
-						vertexData[12] = -1 + xb * 2; vertexData[13] =  1 + yb * 2; vertexData[14] = -1 + zb * 2;
-						vertexData[15] = -1 + xb * 2; vertexData[16] = -1 + yb * 2; vertexData[17] = -1 + zb * 2;
-						
-						memcpy(texcoordData, BLOCKS[currentBlock - 1].texcoords[BLOCK_LEFT], sizeof(TexcoordFace));
-						
-						vertexData += 18;
-						texcoordData += 12;
-						chunkCached[chunkId].faces++;
-					}
+	for(int i = 0; i < WORLD_CHUNK_NBLOCKS; i++) { 
+		int xb = (i  % WORLD_CHUNK_SIZE);
+		int yb = (i  / WORLD_CHUNK_SIZE) % WORLD_CHUNK_SIZE;
+		int zb = (i / (WORLD_CHUNK_SIZE * WORLD_CHUNK_SIZE));
+		#define GET_BLOCK(X, Y, Z) wChunk->blocks[X][Y][Z]
+		currentBlock = GET_BLOCK(xb, yb, zb);
+		if(currentBlock == 0)
+			continue;
+		if(xb == 0 || GET_BLOCK(xb - 1, yb, zb) == 0) {
+			generateFace(BLOCK_LEFT, currentBlock, vertexData, texcoordData, xb, yb, zb);
+			
+			vertexData += 18;
+			texcoordData += 12;
+			chunkCached[chunkId].faces++;
+		}
 
-					if(yb == 0 || GET_BLOCK(xb, yb - 1, zb) == 0) {
-						//Generate bottom face
-						vertexData[0]  = -1.0 + xb * 2; vertexData[1]  = -1.0 + yb * 2; vertexData[2]  = -1.0 + zb * 2;
-						vertexData[3]  =  1.0 + xb * 2; vertexData[4]  = -1.0 + yb * 2; vertexData[5]  = -1.0 + zb * 2;
-						vertexData[6]  =  1.0 + xb * 2; vertexData[7]  = -1.0 + yb * 2; vertexData[8]  =  1.0 + zb * 2;
-						vertexData[9]  =  1.0 + xb * 2; vertexData[10] = -1.0 + yb * 2; vertexData[11] =  1.0 + zb * 2;
-						vertexData[12] = -1.0 + xb * 2; vertexData[13] = -1.0 + yb * 2; vertexData[14] =  1.0 + zb * 2;
-						vertexData[15] = -1.0 + xb * 2; vertexData[16] = -1.0 + yb * 2; vertexData[17] = -1.0 + zb * 2;
+		if(yb == 0 || GET_BLOCK(xb, yb - 1, zb) == 0) {
+			generateFace(BLOCK_BOTTOM, currentBlock, vertexData, texcoordData, xb, yb, zb);
 
+			vertexData += 18;
+			texcoordData += 12;
+			chunkCached[chunkId].faces++;
+		}
+		if(xb == WORLD_CHUNK_SIZE - 1 || GET_BLOCK(xb + 1, yb, zb) == 0) {
+			generateFace(BLOCK_RIGHT, currentBlock, vertexData, texcoordData, xb, yb, zb);
 
-						memcpy(texcoordData, BLOCKS[currentBlock - 1].texcoords[BLOCK_BOTTOM], sizeof(TexcoordFace));
-						
-						vertexData += 18;
-						texcoordData += 12;
-						chunkCached[chunkId].faces++;
-					}
-					if(xb == WORLD_CHUNK_SIZE - 1 || GET_BLOCK(xb + 1, yb, zb) == 0) {
-						//Generate right face
-						vertexData[0]  =  1 + xb * 2; vertexData[1]  = -1 + yb * 2; vertexData[2]  =  1 + zb * 2;
-						vertexData[3]  =  1 + xb * 2; vertexData[4]  = -1 + yb * 2; vertexData[5]  = -1 + zb * 2;
-						vertexData[6]  =  1 + xb * 2; vertexData[7]  =  1 + yb * 2; vertexData[8]  = -1 + zb * 2;
-						vertexData[9]  =  1 + xb * 2; vertexData[10] =  1 + yb * 2; vertexData[11] = -1 + zb * 2;
-						vertexData[12] =  1 + xb * 2; vertexData[13] =  1 + yb * 2; vertexData[14] =  1 + zb * 2;
-						vertexData[15] =  1 + xb * 2; vertexData[16] = -1 + yb * 2; vertexData[17] =  1 + zb * 2;
+			vertexData += 18;
+			texcoordData += 12;
+			chunkCached[chunkId].faces++;
+		}
 
+		if(yb == WORLD_CHUNK_SIZE - 1 || GET_BLOCK(xb, yb + 1, zb) == 0) {
+			generateFace(BLOCK_TOP, currentBlock, vertexData, texcoordData, xb, yb, zb);
 
-						memcpy(texcoordData, BLOCKS[currentBlock - 1].texcoords[BLOCK_RIGHT], sizeof(TexcoordFace));
+			vertexData += 18;
+			texcoordData += 12;
+			chunkCached[chunkId].faces++;
+		}
 
-						vertexData += 18;
-						texcoordData += 12;
-						chunkCached[chunkId].faces++;
-					}
+		if(zb == WORLD_CHUNK_SIZE - 1 || !GET_BLOCK(xb, yb, zb + 1)) {
+			generateFace(BLOCK_FRONT, currentBlock, vertexData, texcoordData, xb, yb, zb);
 
-					if(yb == WORLD_CHUNK_SIZE - 1 || GET_BLOCK(xb, yb + 1, zb) == 0) {
-						//Generate top face
-						vertexData[0]  = -1 + xb * 2; vertexData[1]  =  1 + yb * 2; vertexData[2]  = -1 + zb * 2;
-						vertexData[3]  = -1 + xb * 2; vertexData[4]  =  1 + yb * 2; vertexData[5]  =  1 + zb * 2;
-						vertexData[6]  =  1 + xb * 2; vertexData[7]  =  1 + yb * 2; vertexData[8]  =  1 + zb * 2;
-						vertexData[9]  =  1 + xb * 2; vertexData[10] =  1 + yb * 2; vertexData[11] =  1 + zb * 2;
-						vertexData[12] =  1 + xb * 2; vertexData[13] =  1 + yb * 2; vertexData[14] = -1 + zb * 2;
-						vertexData[15] = -1 + xb * 2; vertexData[16] =  1 + yb * 2; vertexData[17] = -1 + zb * 2;
+			vertexData += 18;
+			texcoordData += 12;
+			chunkCached[chunkId].faces++;
+		}
 
+		if(zb == 0 || !GET_BLOCK(xb, yb, zb - 1)) {
+			generateFace(BLOCK_BACK, currentBlock, vertexData, texcoordData, xb, yb, zb);
 
-						memcpy(texcoordData, BLOCKS[currentBlock - 1].texcoords[BLOCK_TOP], sizeof(TexcoordFace));
+			vertexData += 18;
+			texcoordData += 12;
+			chunkCached[chunkId].faces++;
+		}
+	}
 
-						vertexData += 18;
-						texcoordData += 12;
-						chunkCached[chunkId].faces++;
-					}
-
-					if(zb == WORLD_CHUNK_SIZE - 1 || !GET_BLOCK(xb, yb, zb + 1)) {
-						//Generate front face
-						vertexData[0]  = -1 + xb * 2; vertexData[1]  = -1 + yb * 2; vertexData[2]  =  1 + zb * 2;
-						vertexData[3]  =  1 + xb * 2; vertexData[4]  = -1 + yb * 2; vertexData[5]  =  1 + zb * 2;
-						vertexData[6]  =  1 + xb * 2; vertexData[7]  =  1 + yb * 2; vertexData[8]  =  1 + zb * 2;
-						vertexData[9]  =  1 + xb * 2; vertexData[10] =  1 + yb * 2; vertexData[11] =  1 + zb * 2;
-						vertexData[12] = -1 + xb * 2; vertexData[13] =  1 + yb * 2; vertexData[14] =  1 + zb * 2;
-						vertexData[15] = -1 + xb * 2; vertexData[16] = -1 + yb * 2; vertexData[17] =  1 + zb * 2;
-
-
-						memcpy(texcoordData, BLOCKS[currentBlock - 1].texcoords[BLOCK_FRONT], sizeof(TexcoordFace));
-						vertexData += 18;
-						texcoordData += 12;
-						chunkCached[chunkId].faces++;
-					}
-
-					if(zb == 0 || !GET_BLOCK(xb, yb, zb - 1)) {
-						//Generate back face
-						vertexData[0]  =  1 + xb * 2; vertexData[1]  = -1 + yb * 2; vertexData[2]  = -1 + zb * 2;
-						vertexData[3]  = -1 + xb * 2; vertexData[4]  = -1 + yb * 2; vertexData[5]  = -1 + zb * 2;
-						vertexData[6]  = -1 + xb * 2; vertexData[7]  =  1 + yb * 2; vertexData[8]  = -1 + zb * 2;
-						vertexData[9]  = -1 + xb * 2; vertexData[10] =  1 + yb * 2; vertexData[11] = -1 + zb * 2;
-						vertexData[12] =  1 + xb * 2; vertexData[13] =  1 + yb * 2; vertexData[14] = -1 + zb * 2;
-						vertexData[15] =  1 + xb * 2; vertexData[16] = -1 + yb * 2; vertexData[17] = -1 + zb * 2;
-
-						memcpy(texcoordData, BLOCKS[currentBlock - 1].texcoords[BLOCK_BACK], sizeof(TexcoordFace));
-
-						vertexData += 18;
-						texcoordData += 12;
-						chunkCached[chunkId].faces++;
-					}
-
-				}
-			}
 	glUnmapBuffer(GL_ARRAY_BUFFER);
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	if(!worldChunkVao)
@@ -358,13 +308,6 @@ render()
 	
 	glUniformMatrix4fv(cubeUniformViewLocation, 1, GL_FALSE, &viewMatrix[0][0]);
 	
-//	glActiveTexture(GL_TEXTURE0);
-//	glBindTexture(GL_TEXTURE_2D, cubeTerrainTexture);
-//	glBindVertexArray(cubeVertexArray);
-//	glDrawArrays(GL_TRIANGLES, 0, 36);
-//	glBindVertexArray(0);
-//	glBindTexture(GL_TEXTURE_2D, 0);
-	
 	for(unsigned int i = 0; i < NUM_CHUNK_CACHED; i++) {
 		if(chunkCached[i].canDraw) {
 			mat4x4_translate(modelMatrix, 
@@ -390,4 +333,60 @@ void
 setCamera(vec3 position, vec3 normal, vec3 direction)
 {
 	mat4x4_look_at(viewMatrix, position, direction, normal);
+}
+
+void
+generateFace(BlockFaceDirection face, unsigned int blockId, float *vertexData, float *texcoordData, int xb, int yb, int zb)
+{
+	switch(face) {
+	case BLOCK_LEFT:
+	vertexData[0]  = -1 + xb * 2; vertexData[1]  = -1 + yb * 2; vertexData[2]  = -1 + zb * 2;
+	vertexData[3]  = -1 + xb * 2; vertexData[4]  = -1 + yb * 2; vertexData[5]  =  1 + zb * 2;
+	vertexData[6]  = -1 + xb * 2; vertexData[7]  =  1 + yb * 2; vertexData[8]  =  1 + zb * 2;
+	vertexData[9]  = -1 + xb * 2; vertexData[10] =  1 + yb * 2; vertexData[11] =  1 + zb * 2;
+	vertexData[12] = -1 + xb * 2; vertexData[13] =  1 + yb * 2; vertexData[14] = -1 + zb * 2;
+	vertexData[15] = -1 + xb * 2; vertexData[16] = -1 + yb * 2; vertexData[17] = -1 + zb * 2;
+	break;
+	case BLOCK_BOTTOM:
+	vertexData[0]  = -1.0 + xb * 2; vertexData[1]  = -1.0 + yb * 2; vertexData[2]  = -1.0 + zb * 2;
+	vertexData[3]  =  1.0 + xb * 2; vertexData[4]  = -1.0 + yb * 2; vertexData[5]  = -1.0 + zb * 2;
+	vertexData[6]  =  1.0 + xb * 2; vertexData[7]  = -1.0 + yb * 2; vertexData[8]  =  1.0 + zb * 2;
+	vertexData[9]  =  1.0 + xb * 2; vertexData[10] = -1.0 + yb * 2; vertexData[11] =  1.0 + zb * 2;
+	vertexData[12] = -1.0 + xb * 2; vertexData[13] = -1.0 + yb * 2; vertexData[14] =  1.0 + zb * 2;
+	vertexData[15] = -1.0 + xb * 2; vertexData[16] = -1.0 + yb * 2; vertexData[17] = -1.0 + zb * 2;
+	break;
+	case BLOCK_RIGHT:
+	vertexData[0]  =  1 + xb * 2; vertexData[1]  = -1 + yb * 2; vertexData[2]  =  1 + zb * 2;
+	vertexData[3]  =  1 + xb * 2; vertexData[4]  = -1 + yb * 2; vertexData[5]  = -1 + zb * 2;
+	vertexData[6]  =  1 + xb * 2; vertexData[7]  =  1 + yb * 2; vertexData[8]  = -1 + zb * 2;
+	vertexData[9]  =  1 + xb * 2; vertexData[10] =  1 + yb * 2; vertexData[11] = -1 + zb * 2;
+	vertexData[12] =  1 + xb * 2; vertexData[13] =  1 + yb * 2; vertexData[14] =  1 + zb * 2;
+	vertexData[15] =  1 + xb * 2; vertexData[16] = -1 + yb * 2; vertexData[17] =  1 + zb * 2;
+	break;
+	case BLOCK_TOP:
+	vertexData[0]  = -1 + xb * 2; vertexData[1]  =  1 + yb * 2; vertexData[2]  = -1 + zb * 2;
+	vertexData[3]  = -1 + xb * 2; vertexData[4]  =  1 + yb * 2; vertexData[5]  =  1 + zb * 2;
+	vertexData[6]  =  1 + xb * 2; vertexData[7]  =  1 + yb * 2; vertexData[8]  =  1 + zb * 2;
+	vertexData[9]  =  1 + xb * 2; vertexData[10] =  1 + yb * 2; vertexData[11] =  1 + zb * 2;
+	vertexData[12] =  1 + xb * 2; vertexData[13] =  1 + yb * 2; vertexData[14] = -1 + zb * 2;
+	vertexData[15] = -1 + xb * 2; vertexData[16] =  1 + yb * 2; vertexData[17] = -1 + zb * 2;
+	break;	
+	case BLOCK_FRONT:
+	vertexData[0]  = -1 + xb * 2; vertexData[1]  = -1 + yb * 2; vertexData[2]  =  1 + zb * 2;
+	vertexData[3]  =  1 + xb * 2; vertexData[4]  = -1 + yb * 2; vertexData[5]  =  1 + zb * 2;
+	vertexData[6]  =  1 + xb * 2; vertexData[7]  =  1 + yb * 2; vertexData[8]  =  1 + zb * 2;
+	vertexData[9]  =  1 + xb * 2; vertexData[10] =  1 + yb * 2; vertexData[11] =  1 + zb * 2;
+	vertexData[12] = -1 + xb * 2; vertexData[13] =  1 + yb * 2; vertexData[14] =  1 + zb * 2;
+	vertexData[15] = -1 + xb * 2; vertexData[16] = -1 + yb * 2; vertexData[17] =  1 + zb * 2;
+	break;
+	case BLOCK_BACK:
+	vertexData[0]  =  1 + xb * 2; vertexData[1]  = -1 + yb * 2; vertexData[2]  = -1 + zb * 2;
+	vertexData[3]  = -1 + xb * 2; vertexData[4]  = -1 + yb * 2; vertexData[5]  = -1 + zb * 2;
+	vertexData[6]  = -1 + xb * 2; vertexData[7]  =  1 + yb * 2; vertexData[8]  = -1 + zb * 2;
+	vertexData[9]  = -1 + xb * 2; vertexData[10] =  1 + yb * 2; vertexData[11] = -1 + zb * 2;
+	vertexData[12] =  1 + xb * 2; vertexData[13] =  1 + yb * 2; vertexData[14] = -1 + zb * 2;
+	vertexData[15] =  1 + xb * 2; vertexData[16] = -1 + yb * 2; vertexData[17] = -1 + zb * 2;
+	break;
+	}
+	memcpy(texcoordData, BLOCKS[blockId - 1].texcoords[face], sizeof(TexcoordFace));
 }

@@ -24,7 +24,7 @@
 	GEN_SIMPLE_TEXCOORD(BACK) \
 }
 
-struct BlockInfo BLOCKS[3] = {
+BlockInfo BLOCKS[3] = {
 	{ "GRASS", MULTI_TEXCOORD(0, 1, 2, 2, 2, 2) },
 	{ "DIRT",  SIMPLE_TEXCOORD(1) },
 	{ "STONE", SIMPLE_TEXCOORD(3) }

@@ -30,7 +30,7 @@ static Window   rootWindow, window;
 static Atom     wmDeleteWindow;
 static int      screen;
 
-static vec3  cameraPosition = { 0.0, 2.0, -10.0 };
+static vec3  cameraPosition = { 0.0, 16.0, 10.0 };
 static vec3  cameraNormal   = { 0.0, 1.0, 0.0 };
 static vec3  cameraLook     = { 0.0, 0.0, 0.0 };
 
@@ -236,9 +236,7 @@ main(int argc, char *argv[])
 	startClock();
 	initRenderingSystem();
 
-	createWorld(2, 4, 2);
-	for(unsigned int i = 0; i < 2 * 4 * 2; i++)
-		generateChunkModel(i % 2, (i / 2) % 4, i / 8);
+	createWorld(32, 4, 32);
 
 	running = 1;
 
@@ -249,9 +247,7 @@ main(int argc, char *argv[])
 		processCamera(10.0/60.0, 5.0/60.0);
 
 		setCamera(cameraPosition, cameraNormal, cameraLook);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-		render();
+		render(cameraPosition[0], cameraPosition[1], cameraPosition[2]);
 		
 		updateWindow();
 

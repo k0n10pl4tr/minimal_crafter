@@ -8,13 +8,14 @@
 #include "blocks.h"
 
 #include <stdio.h>
+#include <stdlib.h>
+#include <math.h>
 
 //for memcpy
 #include <string.h>
 
-#define NUM_CHUNK_CACHED 256
-
-void generateFace(BlockFaceDirection face, unsigned int blockId, float *vertexData, float *texcoordData, int xb, int yb, int zb);
+#define NUM_CHUNK_CACHED 1024
+#define NUM_CHUNKS_RENDER 4
 
 typedef struct ChunkBufferData {
 	unsigned int vao;
@@ -25,6 +26,9 @@ typedef struct ChunkBufferData {
 	unsigned char canDraw;
 } ChunkBufferData;
 
+void generateFace(BlockFaceDirection face, unsigned int blockId, float *vertexData, float *texcoordData, int xb, int yb, int zb);
+unsigned char isChunkInsideRenderBoundry(ChunkBufferData* bData, int pX, int pY, int pZ, int bDistance);
+
 static unsigned int cubeRenderingShader = 0;
 static unsigned int cubeVertexArray = 0;
 static unsigned int cubeVertexBuffer = 0;
@@ -32,9 +36,6 @@ static unsigned int cubeVertexBuffer = 0;
 static unsigned int cubeUniformProjectionLocation = 0;
 static unsigned int cubeUniformModelLocation      = 0;
 static unsigned int cubeUniformViewLocation       = 0;
-
-static unsigned int worldChunkBuffer      = 0;
-static unsigned int worldChunkVao   = 0;
 
 static unsigned int cubeTexture = 0;
 static unsigned int cubeTerrainTexture = 0;
@@ -191,6 +192,21 @@ initRenderingSystem()
 
 	for(unsigned int i = 0; i < NUM_CHUNK_CACHED; i++) {
 		chunkCached[i].canDraw = 0;
+		glGenBuffers(1, &chunkCached[i].vbo);
+		glGenVertexArrays(1, &chunkCached[i].vao);
+			
+		glBindBuffer(GL_ARRAY_BUFFER, chunkCached[i].vbo);
+		glBufferData(GL_ARRAY_BUFFER, WORLD_CHUNK_NBLOCKS * 30 * 6 * sizeof(float), NULL, GL_DYNAMIC_DRAW);
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+		glBindVertexArray(chunkCached[i].vao);
+		glEnableVertexAttribArray(0);
+		glEnableVertexAttribArray(1);
+		glBindBuffer(GL_ARRAY_BUFFER, chunkCached[i].vbo);
+		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 3, (void*)(0));
+		glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(float) * 2, (void*)(WORLD_CHUNK_NBLOCKS * 18 * 6 * sizeof(float)));
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+		glBindVertexArray(0);
 	}
 }
 
@@ -198,7 +214,7 @@ void
 resizeRenderingSystem(int w, int h)
 {
 	printf("Resizing to %dx%d (aspect: %f\n", w, h, (float)w/h);
-	mat4x4_perspective(projectionMatrix, TO_RADIANS(70.0), (float)w/h, 0.01, 100.0);
+	mat4x4_perspective(projectionMatrix, TO_RADIANS(70.0), (float)w/h, 0.01, 1000.0);
 	glUseProgram(cubeRenderingShader);
 	glUniformMatrix4fv(cubeUniformProjectionLocation, 1, GL_FALSE, &projectionMatrix[0][0]);
 	glUseProgram(0);
@@ -209,16 +225,22 @@ resizeRenderingSystem(int w, int h)
 void
 generateChunkModel(unsigned int x, unsigned int y, unsigned int z)
 {
-	unsigned int chunkId = chunkCachedStackSize;
+	unsigned int chunkId = chunkCachedStackSize % NUM_CHUNK_CACHED;
+	for(unsigned int i = 0; i < NUM_CHUNK_CACHED; i++) {
+		if(chunkCached[i].canDraw && 
+				chunkCached[i].xOffset == x &&
+				chunkCached[i].yOffset == y &&
+				chunkCached[i].zOffset == z) {
+			return;
+		}
+	}
+	
 	chunkCached[chunkId].faces = 0;
 	chunkCached[chunkId].xOffset = x;
 	chunkCached[chunkId].yOffset = y;
 	chunkCached[chunkId].zOffset = z;
-
-	glGenBuffers(1, &chunkCached[chunkId].vbo);
+	
 	glBindBuffer(GL_ARRAY_BUFFER, chunkCached[chunkId].vbo);
-	glBufferData(GL_ARRAY_BUFFER, WORLD_CHUNK_NBLOCKS * 30 * 6 * sizeof(float), NULL, GL_DYNAMIC_DRAW);
-
 	float* bufferData = glMapBuffer(GL_ARRAY_BUFFER, GL_WRITE_ONLY);
 	float* vertexData = &bufferData[0];
 	float* texcoordData = &bufferData[WORLD_CHUNK_NBLOCKS * 18 * 6];
@@ -279,41 +301,54 @@ generateChunkModel(unsigned int x, unsigned int y, unsigned int z)
 			chunkCached[chunkId].faces++;
 		}
 	}
-
 	glUnmapBuffer(GL_ARRAY_BUFFER);
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
-	if(!worldChunkVao)
-		glGenVertexArrays(1, &worldChunkVao);
 	
-	glGenVertexArrays(1, &chunkCached[chunkId].vao);
-	glBindVertexArray(chunkCached[chunkId].vao);
-	glEnableVertexAttribArray(0);
-	glEnableVertexAttribArray(1);
-	glBindBuffer(GL_ARRAY_BUFFER, chunkCached[chunkId].vbo);
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 3, (void*)(0));
-	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(float) * 2, (void*)(WORLD_CHUNK_NBLOCKS * 18 * 6 * sizeof(float)));
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-	glBindVertexArray(0);
-	
+
 	chunkCached[chunkId].canDraw = 1;
 	chunkCachedStackSize ++;
 }
 
-void
-render()
+void 
+generateChunkModelAroundPos(int x, int y, int z, unsigned int distance)
 {
+	int chunks = distance;
+	x = x / (WORLD_CHUNK_SIZE * 2);
+	y = y / (WORLD_CHUNK_SIZE * 2);
+	z = z / (WORLD_CHUNK_SIZE * 2);
+
+	for(int xc = x - chunks; xc < x + chunks; xc++) {
+		for(int yc = y - chunks; yc < y + chunks; yc++) {
+			for(int zc = z - chunks; zc < z + chunks; zc++) {
+				const WorldChunk* chunk = getWorldChunk(xc, yc, zc);
+				if(chunk == NULL) 
+					continue;
+				generateChunkModel(xc, yc, zc);
+			}
+		}
+	}
+}
+
+void
+render(float camX, float camY, float camZ)
+{
+	generateChunkModelAroundPos(camX, camY, camZ, NUM_CHUNKS_RENDER);
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_CULL_FACE);
+
 	glUseProgram(cubeRenderingShader);
+	glClearColor(0.2, 0.3, 0.7, 1.0);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	
 	glUniformMatrix4fv(cubeUniformViewLocation, 1, GL_FALSE, &viewMatrix[0][0]);
-	
 	for(unsigned int i = 0; i < NUM_CHUNK_CACHED; i++) {
-		if(chunkCached[i].canDraw) {
+		if(chunkCached[i].canDraw && isChunkInsideRenderBoundry(&chunkCached[i], camX, camY, camZ, 4)) {
+			mat4x4_identity(modelMatrix);
 			mat4x4_translate(modelMatrix, 
-					chunkCached[i].xOffset * WORLD_CHUNK_SIZE, 
-					chunkCached[i].yOffset * WORLD_CHUNK_SIZE, 
-					chunkCached[i].zOffset * WORLD_CHUNK_SIZE);
+					chunkCached[i].xOffset * (WORLD_CHUNK_SIZE * 2.0), 
+					chunkCached[i].yOffset * (WORLD_CHUNK_SIZE * 2.0), 
+					chunkCached[i].zOffset * (WORLD_CHUNK_SIZE * 2.0));
+
 			glUniformMatrix4fv(cubeUniformModelLocation, 1, GL_FALSE, &modelMatrix[0][0]);
 
 			glActiveTexture(GL_TEXTURE0);
@@ -389,4 +424,18 @@ generateFace(BlockFaceDirection face, unsigned int blockId, float *vertexData, f
 	break;
 	}
 	memcpy(texcoordData, BLOCKS[blockId - 1].texcoords[face], sizeof(TexcoordFace));
+}
+
+unsigned char 
+isChunkInsideRenderBoundry(ChunkBufferData* bData, int x, int y, int z, int bDistance)
+{
+	x = x / (WORLD_CHUNK_SIZE * 2);
+	y = y / (WORLD_CHUNK_SIZE * 2);
+	z = z / (WORLD_CHUNK_SIZE * 2);
+
+	int xd = abs((int)bData->xOffset - x);
+	int yd = abs((int)bData->yOffset - y);
+	int zd = abs((int)bData->zOffset - z);
+	
+	return xd < bDistance && yd < bDistance && zd < bDistance;
 }

@@ -14,8 +14,8 @@
 //for memcpy
 #include <string.h>
 
-#define NUM_CHUNK_CACHED 1024
 #define NUM_CHUNKS_RENDER 4
+#define NUM_CHUNK_CACHED 256
 
 typedef struct ChunkBufferData {
 	unsigned int vao;
@@ -225,6 +225,10 @@ resizeRenderingSystem(int w, int h)
 void
 generateChunkModel(unsigned int x, unsigned int y, unsigned int z)
 {
+	wChunk = getWorldChunk(x, y, z);
+	if(wChunk->numBlocks == 0) {
+		return;
+	}
 	unsigned int chunkId = chunkCachedStackSize % NUM_CHUNK_CACHED;
 	for(unsigned int i = 0; i < NUM_CHUNK_CACHED; i++) {
 		if(chunkCached[i].canDraw && 
@@ -245,7 +249,6 @@ generateChunkModel(unsigned int x, unsigned int y, unsigned int z)
 	float* vertexData = &bufferData[0];
 	float* texcoordData = &bufferData[WORLD_CHUNK_NBLOCKS * 18 * 6];
 	
-	wChunk = getWorldChunk(x, y, z);
 	for(int i = 0; i < WORLD_CHUNK_NBLOCKS; i++) { 
 		int xb = (i  % WORLD_CHUNK_SIZE);
 		int yb = (i  / WORLD_CHUNK_SIZE) % WORLD_CHUNK_SIZE;
@@ -309,7 +312,6 @@ generateChunkModel(unsigned int x, unsigned int y, unsigned int z)
 	glUnmapBuffer(GL_ARRAY_BUFFER);
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	
-
 	chunkCached[chunkId].canDraw = 1;
 	chunkCachedStackSize ++;
 }

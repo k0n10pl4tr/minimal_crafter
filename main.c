@@ -30,9 +30,14 @@ static Window   rootWindow, window;
 static Atom     wmDeleteWindow;
 static int      screen;
 
-static vec3  cameraPosition = { 0.0, 16.0, 10.0 };
+static vec3  cameraPosition = { 0.0, 32.0, 10.0 };
 static vec3  cameraNormal   = { 0.0, 1.0, 0.0 };
 static vec3  cameraLook     = { 0.0, 0.0, 0.0 };
+static vec3  cameraEye      = { 0.0, 0.0, 0.0 };
+static vec3 velocity = { 0.0, 0.0, 0.0 };
+
+static float cameraHeight   = 1.65;
+static unsigned char cameraFalling = 0;
 
 static float cameraPitch   = M_PI / 2.0;
 static float cameraYaw     = 0;
@@ -209,24 +214,57 @@ processCamera(float cameraMoveSpeed, float cameraRotateSpeed)
 	if(keyDown) cameraPitch -= cameraRotateSpeed;
 
 	if(keyFront) { 
-		cameraPosition[0] += cos(cameraYaw) * cameraMoveSpeed;
-		cameraPosition[2] += sin(cameraYaw) * cameraMoveSpeed;
+		velocity[0] += cos(cameraYaw) * cameraMoveSpeed;
+		velocity[2] += sin(cameraYaw) * cameraMoveSpeed;
 	}
 
 	if(keyBack) { 
-		cameraPosition[0] -= cos(cameraYaw) * cameraMoveSpeed;
-		cameraPosition[2] -= sin(cameraYaw) * cameraMoveSpeed;
+		velocity[0] -= cos(cameraYaw) * cameraMoveSpeed;
+		velocity[2] -= sin(cameraYaw) * cameraMoveSpeed;
 	}
 	
-	if(keySpace) 
-		cameraPosition[1] += cameraMoveSpeed;
+	if(keySpace && !cameraFalling) 
+		velocity[1] += cameraMoveSpeed * 50.0;
 	
-	if(keyShift)
-		cameraPosition[1] -= cameraMoveSpeed;
+	if(cameraFalling && velocity[1] < 1.0)
+		velocity[1] -= cameraMoveSpeed * 1.0;
 
-	cameraLook[0] = cameraPosition[0] + cos(cameraYaw);
-	cameraLook[2] = cameraPosition[2] + sin(cameraYaw);
-	cameraLook[1] = cameraPosition[1] + cos(cameraPitch);
+
+	vec3 nextPosition;
+	vec3_add(nextPosition, cameraPosition, velocity); 
+	
+	unsigned int blockAbove;
+
+	//X
+	blockAbove   = getWorldBlock(nextPosition[0], cameraPosition[1], cameraPosition[2]);
+	if(blockAbove)
+		velocity[0] = 0.0;
+
+	unsigned int blockBeneath = getWorldBlock(cameraPosition[0], nextPosition[1], cameraPosition[2]);
+	if(blockBeneath == 0) {
+		cameraFalling = 1;
+	} else {
+		if(cameraFalling)
+			velocity[1] = 0.0;
+		cameraFalling = 0;
+	}
+	
+	//Z
+	blockAbove   = getWorldBlock(cameraPosition[0], cameraPosition[1], nextPosition[2]);
+	if(blockAbove)
+		velocity[2] = 0.0;
+	
+	vec3_add(cameraPosition, cameraPosition, velocity);
+	
+	cameraEye[0] = cameraPosition[0];
+	cameraEye[1] = cameraPosition[1] + cameraHeight;
+	cameraEye[2] = cameraPosition[2];
+	
+	cameraLook[0] = cameraEye[0] + cos(cameraYaw);
+	cameraLook[2] = cameraEye[2] + sin(cameraYaw);
+	cameraLook[1] = cameraEye[1] + cos(cameraPitch);
+
+	vec3_scale(velocity, velocity, 0.9f);
 }
 
 int
@@ -244,9 +282,9 @@ main(int argc, char *argv[])
 		double startProcess, endProcess;
 		startProcess = getCurrentTimeNano();
 		
-		processCamera(10.0/60.0, 5.0/60.0);
-
-		setCamera(cameraPosition, cameraNormal, cameraLook);
+		processCamera(1.0/60.0, 5.0/60.0);
+		
+		setCamera(cameraEye, cameraNormal, cameraLook);
 		render(cameraPosition[0], cameraPosition[1], cameraPosition[2]);
 		
 		updateWindow();

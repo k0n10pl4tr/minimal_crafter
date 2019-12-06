@@ -79,5 +79,9 @@ generateChunk(WorldChunk *chunk, unsigned int xc, unsigned int yc, unsigned int 
 			chunk->blocks[xb][yb][zb] = 3;
 		else
 			chunk->blocks[xb][yb][zb] = 0;
+
+		if (yb + yc * WORLD_CHUNK_SIZE <= heightInt) {
+			chunk->numBlocks++;
+		}
 	}
 }

@@ -7,6 +7,7 @@ typedef struct WorldChunk {
 	unsigned int xOffset, yOffset, zOffset;
 	//                                 X                 Y                 Z
 	unsigned int blocks[WORLD_CHUNK_SIZE][WORLD_CHUNK_SIZE][WORLD_CHUNK_SIZE];
+	unsigned int numBlocks;
 } WorldChunk;
 
 

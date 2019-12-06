@@ -250,12 +250,17 @@ generateChunkModel(unsigned int x, unsigned int y, unsigned int z)
 		int xb = (i  % WORLD_CHUNK_SIZE);
 		int yb = (i  / WORLD_CHUNK_SIZE) % WORLD_CHUNK_SIZE;
 		int zb = (i / (WORLD_CHUNK_SIZE * WORLD_CHUNK_SIZE));
+
+		int xp = xb + (int)x * WORLD_CHUNK_SIZE;
+		int yp = yb + (int)y * WORLD_CHUNK_SIZE;
+		int zp = zb + (int)z * WORLD_CHUNK_SIZE;
+		
 		#define GET_BLOCK(X, Y, Z) wChunk->blocks[X][Y][Z]
 		currentBlock = GET_BLOCK(xb, yb, zb);
 		if(currentBlock == 0)
 			continue;
 		if(xb == 0 || GET_BLOCK(xb - 1, yb, zb) == 0) {
-			generateFace(BLOCK_LEFT, currentBlock, vertexData, texcoordData, xb, yb, zb);
+			generateFace(BLOCK_LEFT, currentBlock, vertexData, texcoordData, xp, yp, zp);
 			
 			vertexData += 18;
 			texcoordData += 12;
@@ -263,14 +268,14 @@ generateChunkModel(unsigned int x, unsigned int y, unsigned int z)
 		}
 
 		if(yb == 0 || GET_BLOCK(xb, yb - 1, zb) == 0) {
-			generateFace(BLOCK_BOTTOM, currentBlock, vertexData, texcoordData, xb, yb, zb);
+			generateFace(BLOCK_BOTTOM, currentBlock, vertexData, texcoordData, xp, yp, zp);
 
 			vertexData += 18;
 			texcoordData += 12;
 			chunkCached[chunkId].faces++;
 		}
 		if(xb == WORLD_CHUNK_SIZE - 1 || GET_BLOCK(xb + 1, yb, zb) == 0) {
-			generateFace(BLOCK_RIGHT, currentBlock, vertexData, texcoordData, xb, yb, zb);
+			generateFace(BLOCK_RIGHT, currentBlock, vertexData, texcoordData, xp, yp, zp);
 
 			vertexData += 18;
 			texcoordData += 12;
@@ -278,7 +283,7 @@ generateChunkModel(unsigned int x, unsigned int y, unsigned int z)
 		}
 
 		if(yb == WORLD_CHUNK_SIZE - 1 || GET_BLOCK(xb, yb + 1, zb) == 0) {
-			generateFace(BLOCK_TOP, currentBlock, vertexData, texcoordData, xb, yb, zb);
+			generateFace(BLOCK_TOP, currentBlock, vertexData, texcoordData, xp, yp, zp);
 
 			vertexData += 18;
 			texcoordData += 12;
@@ -286,7 +291,7 @@ generateChunkModel(unsigned int x, unsigned int y, unsigned int z)
 		}
 
 		if(zb == WORLD_CHUNK_SIZE - 1 || !GET_BLOCK(xb, yb, zb + 1)) {
-			generateFace(BLOCK_FRONT, currentBlock, vertexData, texcoordData, xb, yb, zb);
+			generateFace(BLOCK_FRONT, currentBlock, vertexData, texcoordData, xp, yp, zp);
 
 			vertexData += 18;
 			texcoordData += 12;
@@ -294,7 +299,7 @@ generateChunkModel(unsigned int x, unsigned int y, unsigned int z)
 		}
 
 		if(zb == 0 || !GET_BLOCK(xb, yb, zb - 1)) {
-			generateFace(BLOCK_BACK, currentBlock, vertexData, texcoordData, xb, yb, zb);
+			generateFace(BLOCK_BACK, currentBlock, vertexData, texcoordData, xp, yp, zp);
 
 			vertexData += 18;
 			texcoordData += 12;
@@ -313,9 +318,9 @@ void
 generateChunkModelAroundPos(int x, int y, int z, unsigned int distance)
 {
 	int chunks = distance;
-	x = x / (WORLD_CHUNK_SIZE * 2);
-	y = y / (WORLD_CHUNK_SIZE * 2);
-	z = z / (WORLD_CHUNK_SIZE * 2);
+	x = x / WORLD_CHUNK_SIZE;
+	y = y / WORLD_CHUNK_SIZE;
+	z = z / WORLD_CHUNK_SIZE;
 
 	for(int xc = x - chunks; xc < x + chunks; xc++) {
 		for(int yc = y - chunks; yc < y + chunks; yc++) {
@@ -343,12 +348,6 @@ render(float camX, float camY, float camZ)
 	glUniformMatrix4fv(cubeUniformViewLocation, 1, GL_FALSE, &viewMatrix[0][0]);
 	for(unsigned int i = 0; i < NUM_CHUNK_CACHED; i++) {
 		if(chunkCached[i].canDraw && isChunkInsideRenderBoundry(&chunkCached[i], camX, camY, camZ, 4)) {
-			mat4x4_identity(modelMatrix);
-			mat4x4_translate(modelMatrix, 
-					chunkCached[i].xOffset * (WORLD_CHUNK_SIZE * 2.0), 
-					chunkCached[i].yOffset * (WORLD_CHUNK_SIZE * 2.0), 
-					chunkCached[i].zOffset * (WORLD_CHUNK_SIZE * 2.0));
-
 			glUniformMatrix4fv(cubeUniformModelLocation, 1, GL_FALSE, &modelMatrix[0][0]);
 
 			glActiveTexture(GL_TEXTURE0);
@@ -375,52 +374,52 @@ generateFace(BlockFaceDirection face, unsigned int blockId, float *vertexData, f
 {
 	switch(face) {
 	case BLOCK_LEFT:
-	vertexData[0]  = -1 + xb * 2; vertexData[1]  = -1 + yb * 2; vertexData[2]  = -1 + zb * 2;
-	vertexData[3]  = -1 + xb * 2; vertexData[4]  = -1 + yb * 2; vertexData[5]  =  1 + zb * 2;
-	vertexData[6]  = -1 + xb * 2; vertexData[7]  =  1 + yb * 2; vertexData[8]  =  1 + zb * 2;
-	vertexData[9]  = -1 + xb * 2; vertexData[10] =  1 + yb * 2; vertexData[11] =  1 + zb * 2;
-	vertexData[12] = -1 + xb * 2; vertexData[13] =  1 + yb * 2; vertexData[14] = -1 + zb * 2;
-	vertexData[15] = -1 + xb * 2; vertexData[16] = -1 + yb * 2; vertexData[17] = -1 + zb * 2;
+	vertexData[0]  =  0 + xb; vertexData[1]  =  0 + yb; vertexData[2]  =  0 + zb;
+	vertexData[3]  =  0 + xb; vertexData[4]  =  0 + yb; vertexData[5]  =  1 + zb;
+	vertexData[6]  =  0 + xb; vertexData[7]  =  1 + yb; vertexData[8]  =  1 + zb;
+	vertexData[9]  =  0 + xb; vertexData[10] =  1 + yb; vertexData[11] =  1 + zb;
+	vertexData[12] =  0 + xb; vertexData[13] =  1 + yb; vertexData[14] =  0 + zb;
+	vertexData[15] =  0 + xb; vertexData[16] =  0 + yb; vertexData[17] =  0 + zb;
 	break;
 	case BLOCK_BOTTOM:
-	vertexData[0]  = -1.0 + xb * 2; vertexData[1]  = -1.0 + yb * 2; vertexData[2]  = -1.0 + zb * 2;
-	vertexData[3]  =  1.0 + xb * 2; vertexData[4]  = -1.0 + yb * 2; vertexData[5]  = -1.0 + zb * 2;
-	vertexData[6]  =  1.0 + xb * 2; vertexData[7]  = -1.0 + yb * 2; vertexData[8]  =  1.0 + zb * 2;
-	vertexData[9]  =  1.0 + xb * 2; vertexData[10] = -1.0 + yb * 2; vertexData[11] =  1.0 + zb * 2;
-	vertexData[12] = -1.0 + xb * 2; vertexData[13] = -1.0 + yb * 2; vertexData[14] =  1.0 + zb * 2;
-	vertexData[15] = -1.0 + xb * 2; vertexData[16] = -1.0 + yb * 2; vertexData[17] = -1.0 + zb * 2;
+	vertexData[0]  =  0 + xb; vertexData[1]  =  0 + yb; vertexData[2]  =  0 + zb;
+	vertexData[3]  =  1 + xb; vertexData[4]  =  0 + yb; vertexData[5]  =  0 + zb;
+	vertexData[6]  =  1 + xb; vertexData[7]  =  0 + yb; vertexData[8]  =  1 + zb;
+	vertexData[9]  =  1 + xb; vertexData[10] =  0 + yb; vertexData[11] =  1 + zb;
+	vertexData[12] =  0 + xb; vertexData[13] =  0 + yb; vertexData[14] =  1 + zb;
+	vertexData[15] =  0 + xb; vertexData[16] =  0 + yb; vertexData[17] =  0 + zb;
 	break;
 	case BLOCK_RIGHT:
-	vertexData[0]  =  1 + xb * 2; vertexData[1]  = -1 + yb * 2; vertexData[2]  =  1 + zb * 2;
-	vertexData[3]  =  1 + xb * 2; vertexData[4]  = -1 + yb * 2; vertexData[5]  = -1 + zb * 2;
-	vertexData[6]  =  1 + xb * 2; vertexData[7]  =  1 + yb * 2; vertexData[8]  = -1 + zb * 2;
-	vertexData[9]  =  1 + xb * 2; vertexData[10] =  1 + yb * 2; vertexData[11] = -1 + zb * 2;
-	vertexData[12] =  1 + xb * 2; vertexData[13] =  1 + yb * 2; vertexData[14] =  1 + zb * 2;
-	vertexData[15] =  1 + xb * 2; vertexData[16] = -1 + yb * 2; vertexData[17] =  1 + zb * 2;
+	vertexData[0]  =  1 + xb; vertexData[1]  =  0 + yb; vertexData[2]  =  1 + zb;
+	vertexData[3]  =  1 + xb; vertexData[4]  =  0 + yb; vertexData[5]  =  0 + zb;
+	vertexData[6]  =  1 + xb; vertexData[7]  =  1 + yb; vertexData[8]  =  0 + zb;
+	vertexData[9]  =  1 + xb; vertexData[10] =  1 + yb; vertexData[11] =  0 + zb;
+	vertexData[12] =  1 + xb; vertexData[13] =  1 + yb; vertexData[14] =  1 + zb;
+	vertexData[15] =  1 + xb; vertexData[16] =  0 + yb; vertexData[17] =  1 + zb;
 	break;
 	case BLOCK_TOP:
-	vertexData[0]  = -1 + xb * 2; vertexData[1]  =  1 + yb * 2; vertexData[2]  = -1 + zb * 2;
-	vertexData[3]  = -1 + xb * 2; vertexData[4]  =  1 + yb * 2; vertexData[5]  =  1 + zb * 2;
-	vertexData[6]  =  1 + xb * 2; vertexData[7]  =  1 + yb * 2; vertexData[8]  =  1 + zb * 2;
-	vertexData[9]  =  1 + xb * 2; vertexData[10] =  1 + yb * 2; vertexData[11] =  1 + zb * 2;
-	vertexData[12] =  1 + xb * 2; vertexData[13] =  1 + yb * 2; vertexData[14] = -1 + zb * 2;
-	vertexData[15] = -1 + xb * 2; vertexData[16] =  1 + yb * 2; vertexData[17] = -1 + zb * 2;
+	vertexData[0]  =  0 + xb; vertexData[1]  =  1 + yb; vertexData[2]  =  0 + zb;
+	vertexData[3]  =  0 + xb; vertexData[4]  =  1 + yb; vertexData[5]  =  1 + zb;
+	vertexData[6]  =  1 + xb; vertexData[7]  =  1 + yb; vertexData[8]  =  1 + zb;
+	vertexData[9]  =  1 + xb; vertexData[10] =  1 + yb; vertexData[11] =  1 + zb;
+	vertexData[12] =  1 + xb; vertexData[13] =  1 + yb; vertexData[14] =  0 + zb;
+	vertexData[15] =  0 + xb; vertexData[16] =  1 + yb; vertexData[17] =  0 + zb;
 	break;	
 	case BLOCK_FRONT:
-	vertexData[0]  = -1 + xb * 2; vertexData[1]  = -1 + yb * 2; vertexData[2]  =  1 + zb * 2;
-	vertexData[3]  =  1 + xb * 2; vertexData[4]  = -1 + yb * 2; vertexData[5]  =  1 + zb * 2;
-	vertexData[6]  =  1 + xb * 2; vertexData[7]  =  1 + yb * 2; vertexData[8]  =  1 + zb * 2;
-	vertexData[9]  =  1 + xb * 2; vertexData[10] =  1 + yb * 2; vertexData[11] =  1 + zb * 2;
-	vertexData[12] = -1 + xb * 2; vertexData[13] =  1 + yb * 2; vertexData[14] =  1 + zb * 2;
-	vertexData[15] = -1 + xb * 2; vertexData[16] = -1 + yb * 2; vertexData[17] =  1 + zb * 2;
+	vertexData[0]  =  0 + xb; vertexData[1]  =  0 + yb; vertexData[2]  =  1 + zb;
+	vertexData[3]  =  1 + xb; vertexData[4]  =  0 + yb; vertexData[5]  =  1 + zb;
+	vertexData[6]  =  1 + xb; vertexData[7]  =  1 + yb; vertexData[8]  =  1 + zb;
+	vertexData[9]  =  1 + xb; vertexData[10] =  1 + yb; vertexData[11] =  1 + zb;
+	vertexData[12] =  0 + xb; vertexData[13] =  1 + yb; vertexData[14] =  1 + zb;
+	vertexData[15] =  0 + xb; vertexData[16] =  0 + yb; vertexData[17] =  1 + zb;
 	break;
 	case BLOCK_BACK:
-	vertexData[0]  =  1 + xb * 2; vertexData[1]  = -1 + yb * 2; vertexData[2]  = -1 + zb * 2;
-	vertexData[3]  = -1 + xb * 2; vertexData[4]  = -1 + yb * 2; vertexData[5]  = -1 + zb * 2;
-	vertexData[6]  = -1 + xb * 2; vertexData[7]  =  1 + yb * 2; vertexData[8]  = -1 + zb * 2;
-	vertexData[9]  = -1 + xb * 2; vertexData[10] =  1 + yb * 2; vertexData[11] = -1 + zb * 2;
-	vertexData[12] =  1 + xb * 2; vertexData[13] =  1 + yb * 2; vertexData[14] = -1 + zb * 2;
-	vertexData[15] =  1 + xb * 2; vertexData[16] = -1 + yb * 2; vertexData[17] = -1 + zb * 2;
+	vertexData[0]  =  1 + xb; vertexData[1]  =  0 + yb; vertexData[2]  =  0 + zb;
+	vertexData[3]  =  0 + xb; vertexData[4]  =  0 + yb; vertexData[5]  =  0 + zb;
+	vertexData[6]  =  0 + xb; vertexData[7]  =  1 + yb; vertexData[8]  =  0 + zb;
+	vertexData[9]  =  0 + xb; vertexData[10] =  1 + yb; vertexData[11] =  0 + zb;
+	vertexData[12] =  1 + xb; vertexData[13] =  1 + yb; vertexData[14] =  0 + zb;
+	vertexData[15] =  1 + xb; vertexData[16] =  0 + yb; vertexData[17] =  0 + zb;
 	break;
 	}
 	memcpy(texcoordData, BLOCKS[blockId - 1].texcoords[face], sizeof(TexcoordFace));
@@ -429,9 +428,9 @@ generateFace(BlockFaceDirection face, unsigned int blockId, float *vertexData, f
 unsigned char 
 isChunkInsideRenderBoundry(ChunkBufferData* bData, int x, int y, int z, int bDistance)
 {
-	x = x / (WORLD_CHUNK_SIZE * 2);
-	y = y / (WORLD_CHUNK_SIZE * 2);
-	z = z / (WORLD_CHUNK_SIZE * 2);
+	x = x / WORLD_CHUNK_SIZE;
+	y = y / WORLD_CHUNK_SIZE;
+	z = z / WORLD_CHUNK_SIZE;
 
 	int xd = abs((int)bData->xOffset - x);
 	int yd = abs((int)bData->yOffset - y);

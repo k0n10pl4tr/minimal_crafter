@@ -47,6 +47,15 @@ getWorldChunk(int xC, int yC, int zC)
 	return &world.cachedChunks[xC + yC * world.width + zC * world.height * world.width];
 }
 
+unsigned int
+getWorldBlock(int xB, int yB, int zB)
+{
+	const WorldChunk* chunk = getWorldChunk(xB / WORLD_CHUNK_SIZE, yB / WORLD_CHUNK_SIZE, zB / WORLD_CHUNK_SIZE);
+	if(chunk == NULL)
+		return 0;
+	return chunk->blocks[xB % WORLD_CHUNK_SIZE][yB % WORLD_CHUNK_SIZE][zB % WORLD_CHUNK_SIZE];
+}
+
 void
 generateChunk(WorldChunk *chunk, unsigned int xc, unsigned int yc, unsigned int zc, unsigned int seed)
 {

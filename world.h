@@ -12,3 +12,4 @@ typedef struct WorldChunk {
 
 void createWorld(unsigned int w, unsigned int h, unsigned int d);
 const WorldChunk* getWorldChunk(int xC, int yC, int zC);
+unsigned int getWorldBlock(int xB, int yB, int zB);

@@ -8,6 +8,7 @@
 #include "rendering.h"
 #include "world.h"
 #include "glad.h"
+#include "aabb.h"
 
 #include <GL/glx.h>
 
@@ -34,7 +35,9 @@ static vec3  cameraPosition = { 0.0, 32.0, 10.0 };
 static vec3  cameraNormal   = { 0.0, 1.0, 0.0 };
 static vec3  cameraLook     = { 0.0, 0.0, 0.0 };
 static vec3  cameraEye      = { 0.0, 0.0, 0.0 };
-static vec3 velocity = { 0.0, 0.0, 0.0 };
+static vec3  velocity = { 0.0, 0.0, 0.0 };
+
+AABBCollisor cameraCollisor[3];
 
 static float cameraHeight   = 1.65;
 static unsigned char cameraFalling = 0;
@@ -233,26 +236,32 @@ processCamera(float cameraMoveSpeed, float cameraRotateSpeed)
 	vec3 nextPosition;
 	vec3_add(nextPosition, cameraPosition, velocity); 
 	
-	unsigned int blockAbove;
+	cameraCollisor[0].x = nextPosition[0];
+	cameraCollisor[0].y = cameraPosition[1]; 
+	cameraCollisor[0].z = cameraPosition[2];
 
-	//X
-	blockAbove   = getWorldBlock(nextPosition[0], cameraPosition[1], cameraPosition[2]);
-	if(blockAbove)
+	cameraCollisor[1].x = cameraPosition[0];
+	cameraCollisor[1].y = nextPosition[1]; 
+	cameraCollisor[1].z = cameraPosition[2];
+
+	cameraCollisor[2].x = cameraPosition[0];
+	cameraCollisor[2].y = cameraPosition[1]; 
+	cameraCollisor[2].z = nextPosition[2];
+
+	if(checkCollisionWorld(&cameraCollisor[0])) {
 		velocity[0] = 0.0;
-
-	unsigned int blockBeneath = getWorldBlock(cameraPosition[0], nextPosition[1], cameraPosition[2]);
-	if(blockBeneath == 0) {
-		cameraFalling = 1;
-	} else {
-		if(cameraFalling)
-			velocity[1] = 0.0;
-		cameraFalling = 0;
 	}
-	
-	//Z
-	blockAbove   = getWorldBlock(cameraPosition[0], cameraPosition[1], nextPosition[2]);
-	if(blockAbove)
+
+	if(checkCollisionWorld(&cameraCollisor[1])) {
+		cameraFalling = 0;
+		velocity[1] = 0.0;
+	} else {
+		cameraFalling = 1;
+	}
+
+	if(checkCollisionWorld(&cameraCollisor[2])) {
 		velocity[2] = 0.0;
+	}
 	
 	vec3_add(cameraPosition, cameraPosition, velocity);
 	

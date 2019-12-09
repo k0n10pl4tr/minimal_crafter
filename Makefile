@@ -1,5 +1,5 @@
 
-cc=tcc
+cc=c99
 cflags=-Wall -Werror 
 libs=-lX11 -lGLX -lm
 

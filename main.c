@@ -9,6 +9,7 @@
 #include "world.h"
 #include "glad.h"
 #include "aabb.h"
+#include "constants.h"
 
 #include <GL/glx.h>
 
